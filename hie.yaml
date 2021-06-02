@@ -1,0 +1,13 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "fuji:lib"
+
+    - path: "app/Main.hs"
+      component: "fuji:exe:fuji-exe"
+
+    - path: "app/Paths_fuji.hs"
+      component: "fuji:exe:fuji-exe"
+
+    - path: "test"
+      component: "fuji:test:fuji-test"

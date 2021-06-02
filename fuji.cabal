@@ -4,26 +4,25 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 10618db1dcfd6f5e22546d34c08bea3dfced713619906dee2b48d34227bb1dcc
+-- hash: 14874550b232e4848b1da0132748629d5d66f73599ecc079cee5cef69dbe102f
 
 name:           fuji
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/fuji#readme>
-homepage:       https://github.com/githubuser/fuji#readme
-bug-reports:    https://github.com/githubuser/fuji/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2021 Author name here
+description:    Please see the README on GitHub at <https://github.com/eirikhalvard/fuji#readme>
+homepage:       https://github.com/eirikhalvard/fuji#readme
+bug-reports:    https://github.com/eirikhalvard/fuji/issues
+author:         Eirik Halvard Sæther
+maintainer:     eirik.halvard.95@gmail.com
+copyright:      2021 Eirik Halvard Sæther
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
-    ChangeLog.md
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/fuji
+  location: https://github.com/eirikhalvard/fuji
 
 library
   exposed-modules:
@@ -34,6 +33,8 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , directory
+    , time
   default-language: Haskell2010
 
 executable fuji-exe
@@ -45,7 +46,9 @@ executable fuji-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , directory
     , fuji
+    , time
   default-language: Haskell2010
 
 test-suite fuji-test
@@ -58,5 +61,7 @@ test-suite fuji-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , directory
     , fuji
+    , time
   default-language: Haskell2010
