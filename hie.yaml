@@ -4,10 +4,10 @@ cradle:
       component: "fuji:lib"
 
     - path: "app/Main.hs"
-      component: "fuji:exe:fuji-exe"
+      component: "fuji:exe:fuji"
 
     - path: "app/Paths_fuji.hs"
-      component: "fuji:exe:fuji-exe"
+      component: "fuji:exe:fuji"
 
     - path: "test"
       component: "fuji:test:fuji-test"

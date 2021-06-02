@@ -1,23 +1,32 @@
-module Lib (someFunc) where
+module Lib (new) where
 
 import Data.Char (isSpace, toLower, toUpper)
 import Data.Time.Clock
 import Data.Time.Format
 import System.Directory
 
+-----------------
+--  Constants  --
+-----------------
+
 t5Lib :: FilePath
 t5Lib = "/Volumes/EirikT5/Pictures/Fuji/"
 
-getYear :: IO String
-getYear = formatTime defaultTimeLocale "%Y" <$> getCurrentTime
+jpgFolderName :: String
+jpgFolderName = "01_JPG"
 
-getFolderName :: String -> IO String
-getFolderName name = do
-  prefix <- formatTime defaultTimeLocale "%Y-%m-%d | " <$> getCurrentTime
-  return $ prefix ++ name
+rawFolderName :: String
+rawFolderName = "02_RAW"
 
-someFunc :: IO ()
-someFunc = do
+exportFolderName :: String
+exportFolderName = "03_EXPORT"
+
+----------------
+--  Fuji New  --
+----------------
+
+new :: IO ()
+new = do
   -- set directory to the external library
   setCurrentDirectory t5Lib
 
@@ -31,13 +40,21 @@ someFunc = do
   name <- capitalize . trim <$> getLine
   folderName <- getFolderName name
   createDirectory folderName
-  createDirectory $ folderName ++ "/" ++ "01_JPG"
-  createDirectory $ folderName ++ "/" ++ "02_RAW"
-  createDirectory $ folderName ++ "/" ++ "03_EXPORT"
+  createDirectory $ folderName ++ "/" ++ jpgFolderName
+  createDirectory $ folderName ++ "/" ++ rawFolderName
+  createDirectory $ folderName ++ "/" ++ exportFolderName
 
-  print "listing dirs..."
-  dirs <- listDirectory "."
-  mapM_ print dirs
+getYear :: IO String
+getYear = formatTime defaultTimeLocale "%Y" <$> getCurrentTime
+
+getFolderName :: String -> IO String
+getFolderName name = do
+  prefix <- formatTime defaultTimeLocale "%Y-%m-%d | " <$> getCurrentTime
+  return $ prefix ++ name
+
+---------------
+--  Helpers  --
+---------------
 
 trim :: String -> String
 trim = f . f
@@ -47,3 +64,5 @@ trim = f . f
 capitalize :: String -> String
 capitalize "" = ""
 capitalize (x : xs) = toUpper x : fmap toLower xs
+
+

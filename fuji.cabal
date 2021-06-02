@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 14874550b232e4848b1da0132748629d5d66f73599ecc079cee5cef69dbe102f
+-- hash: 0bb957965b89b7c7e8cb2c98dfdbd90642a27f4c289ac4f537a4c03858ba0708
 
 name:           fuji
 version:        0.1.0.0
@@ -37,7 +37,7 @@ library
     , time
   default-language: Haskell2010
 
-executable fuji-exe
+executable fuji
   main-is: Main.hs
   other-modules:
       Paths_fuji

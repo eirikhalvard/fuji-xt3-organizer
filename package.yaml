@@ -27,7 +27,7 @@ library:
   source-dirs: src
 
 executables:
-  fuji-exe:
+  fuji:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
