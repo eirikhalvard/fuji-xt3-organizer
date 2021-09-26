@@ -1,8 +1,10 @@
-module Lib (new) where
+module Lib (new, run) where
 
 import Data.Char (isSpace, toLower, toUpper)
+import Data.Semigroup ((<>))
 import Data.Time.Clock
 import Data.Time.Format
+import Options.Applicative
 import System.Directory
 
 -----------------
@@ -92,10 +94,19 @@ getEnv mName = do
         folderName = folderName
       }
 
+run :: IO ()
+run = execute (Create "   checky checkeroo")
+
 execute :: Command -> IO ()
 execute (Create name) = do
   env <- getEnv (Just name)
+  print "----------ENV----------"
   print env
+
+  options <- execParser opts
+  print "----------OPTIONS----------"
+  print options
+
   error "not finished implementing"
 execute (Transfer transfer) = undefined
 execute (CreateAndTransfer name transfer) = undefined
@@ -110,3 +121,50 @@ data Transfer
   = RangeTransfer Int Int
   | AllTransfer
   deriving (Show, Eq)
+
+------------ Parser
+
+opts :: ParserInfo Command
+opts =
+  info
+    (createAndTransferParser <**> helper)
+    ( fullDesc
+        <> progDesc "Helps create folders and transfer photos between SD card and external SSD"
+        <> header "Fujifilm X-T3 Transfer Script"
+    )
+
+createAndTransferParser :: Parser Command
+createAndTransferParser =
+  CreateAndTransfer
+    <$> strOption
+      ( long "name"
+          <> metavar "SESSION_NAME"
+          <> help "Name of the photo session"
+      )
+    <*> transferParser
+
+transferParser :: Parser Transfer
+transferParser =
+  transferAllParser <|> transferRangeParser
+
+transferAllParser :: Parser Transfer
+transferAllParser =
+  flag' AllTransfer (long "all" <> help "transfer all photos from SD card")
+
+transferRangeParser :: Parser Transfer
+transferRangeParser =
+  RangeTransfer
+    <$> option
+      auto
+      ( long "from"
+          <> short 'F'
+          <> metavar "INT"
+          <> help "Number to start transfering from"
+      )
+    <*> option
+      auto
+      ( long "to"
+          <> short 'T'
+          <> metavar "INT"
+          <> help "Number to start transfering to"
+      )
