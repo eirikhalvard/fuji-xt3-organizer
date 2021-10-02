@@ -20,7 +20,7 @@ new = do
   undefined
 
 -- -- set directory to the external library
--- setCurrentDirectory t5Lib
+-- setCurrentDirectory ssdLib
 
 -- -- set directory to the right year
 -- year <- getYear
@@ -52,8 +52,8 @@ getFolderName (Just name) = do
 
 trim :: String -> String
 trim = f . f
-  where
-    f = reverse . dropWhile isSpace
+ where
+  f = reverse . dropWhile isSpace
 
 capitalize :: String -> String
 capitalize "" = ""
@@ -67,14 +67,14 @@ capitalize (x : xs) = toUpper x : fmap toLower xs
 -- create new folder, transfer photos to folder,
 
 data Env = Env
-  { sdLib :: FilePath,
-    t5Lib :: FilePath,
-    jpgFolderName :: String,
-    rawFolderName :: String,
-    exportFolderName :: String,
-    movieFolderName :: String,
-    year :: String,
-    folderName :: String
+  { sdLib :: FilePath
+  , ssdLib :: FilePath
+  , jpgFolderName :: String
+  , rawFolderName :: String
+  , exportFolderName :: String
+  , movieFolderName :: String
+  , year :: String
+  , folderName :: String
   }
   deriving (Show, Eq)
 
@@ -84,37 +84,41 @@ getEnv mName = do
   folderName <- getFolderName mName
   return $
     Env
-      { sdLib = "/Volumes/Untitled/DCIM/147_FUJI/",
-        t5Lib = "/Volumes/EirikT5/Pictures/Fuji/",
-        jpgFolderName = "01_JPG",
-        rawFolderName = "02_RAW",
-        exportFolderName = "03_EXPORT",
-        movieFolderName = "04_MOV",
-        year = year,
-        folderName = folderName
+      { sdLib = "/Volumes/Untitled/DCIM/147_FUJI/"
+      , ssdLib = "/Volumes/EirikT5/Pictures/Fuji/"
+      , jpgFolderName = "01_JPG"
+      , rawFolderName = "02_RAW"
+      , exportFolderName = "03_EXPORT"
+      , movieFolderName = "04_MOV"
+      , year = year
+      , folderName = folderName
       }
 
 run :: IO ()
-run = execute (Create "   checky checkeroo")
+run = execute
 
-execute :: Command -> IO ()
-execute (Create name) = do
-  env <- getEnv (Just name)
+execute :: IO ()
+execute = do
+  command <- execParser opts
+  print "----------OPTIONS----------"
+  print command
+  env <-
+    getEnv
+      ( case command of
+          Create name -> Just name
+          Transfer _ -> Nothing
+          CreateAndTransfer name _ -> Just name
+          GUI -> Nothing
+      )
   print "----------ENV----------"
   print env
-
-  options <- execParser opts
-  print "----------OPTIONS----------"
-  print options
-
   error "not finished implementing"
-execute (Transfer transfer) = undefined
-execute (CreateAndTransfer name transfer) = undefined
 
 data Command
   = Create String
   | Transfer Transfer
   | CreateAndTransfer String Transfer
+  | GUI
   deriving (Show, Eq)
 
 data Transfer
@@ -127,24 +131,46 @@ data Transfer
 opts :: ParserInfo Command
 opts =
   info
-    (createAndTransferParser <**> helper)
+    ( hsubparser
+        ( command "create" (info createParser (progDesc "Add a folder to the SSD"))
+            <> command "transfer" (info transferParser (progDesc "Transfer files from the SD card to the specified location"))
+            <> command "createAndTransfer" (info createAndTransferParser (progDesc "Create a folder on the SSD and transfer the files from the SD card"))
+            <> command "gui" (info guiParser (progDesc "Launch the graphical user interface"))
+        )
+        <**> helper
+    )
     ( fullDesc
         <> progDesc "Helps create folders and transfer photos between SD card and external SSD"
         <> header "Fujifilm X-T3 Transfer Script"
     )
 
+createParser :: Parser Command
+createParser =
+  Create <$> createComponentParser
+
+transferParser :: Parser Command
+transferParser =
+  Transfer <$> transferComponentParser
+
 createAndTransferParser :: Parser Command
 createAndTransferParser =
   CreateAndTransfer
-    <$> strOption
-      ( long "name"
-          <> metavar "SESSION_NAME"
-          <> help "Name of the photo session"
-      )
-    <*> transferParser
+    <$> createComponentParser
+    <*> transferComponentParser
 
-transferParser :: Parser Transfer
-transferParser =
+guiParser :: Parser Command
+guiParser = pure GUI
+
+createComponentParser :: Parser String
+createComponentParser =
+  strOption
+    ( long "name"
+        <> metavar "SESSION_NAME"
+        <> help "Name of the photo session"
+    )
+
+transferComponentParser :: Parser Transfer
+transferComponentParser =
   transferAllParser <|> transferRangeParser
 
 transferAllParser :: Parser Transfer
