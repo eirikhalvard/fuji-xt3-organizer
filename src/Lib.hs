@@ -7,34 +7,50 @@ import Data.Time.Format
 import Options.Applicative
 import System.Directory
 
------------------
---  Constants  --
------------------
+create :: Env -> String -> IO ()
+create env name = do
+  setOrCreateDirectory env
+  createStructure env
 
-----------------
---  Fuji New  --
-----------------
+transfer :: Env -> String -> Transfer -> IO ()
+transfer env name transf = do
+  setOrCreateDirectory env
+  transferPhotos env transf
 
-new :: IO ()
-new = do
-  undefined
+createAndTransfer :: Env -> String -> Transfer -> IO ()
+createAndTransfer env name transf = do
+  setOrCreateDirectory env
+  createStructure env
+  transferPhotos env transf
 
--- -- set directory to the external library
--- setCurrentDirectory ssdLib
+gui :: Env -> IO ()
+gui env = do
+  print "not yet implemented gui"
 
--- -- set directory to the right year
--- year <- getYear
--- let yearDir = "./" ++ year
--- createDirectoryIfMissing False yearDir
--- setCurrentDirectory yearDir
+setOrCreateDirectory :: Env -> IO ()
+setOrCreateDirectory env = do
+  setCurrentDirectory (ssdLib env)
+  let yearDir = "./" ++ year env
+  createDirectoryIfMissing False yearDir
+  setCurrentDirectory yearDir
 
--- -- create folder structure
--- name <- capitalize . trim <$> getLine
--- folderName <- getFolderName name
--- createDirectory folderName
--- createDirectory $ folderName ++ "/" ++ jpgFolderName
--- createDirectory $ folderName ++ "/" ++ rawFolderName
--- createDirectory $ folderName ++ "/" ++ exportFolderName
+createStructure :: Env -> IO ()
+createStructure env = do
+  createDirectory $ folderName env
+  createDirectory $ folderName env ++ "/" ++ jpgFolderName env
+  createDirectory $ folderName env ++ "/" ++ rawFolderName env
+  createDirectory $ folderName env ++ "/" ++ exportFolderName env
+  createDirectory $ folderName env ++ "/" ++ movieFolderName env
+
+transferPhotos :: Env -> Transfer -> IO ()
+transferPhotos env AllTransfer = do
+  print "not yet implemented"
+transferPhotos env (RangeTransfer from to) = do
+  print "not yet implemented"
+
+---------------
+--  Helpers  --
+---------------
 
 getYear :: IO String
 getYear = formatTime defaultTimeLocale "%Y" <$> getCurrentTime
@@ -46,10 +62,6 @@ getFolderName (Just name) = do
   let cleanName = capitalize . trim $ name
   return $ prefix ++ cleanName
 
----------------
---  Helpers  --
----------------
-
 trim :: String -> String
 trim = f . f
  where
@@ -58,13 +70,6 @@ trim = f . f
 capitalize :: String -> String
 capitalize "" = ""
 capitalize (x : xs) = toUpper x : fmap toLower xs
-
--- Usage:
--- fuji --help
--- fuji transfer --from [from] --to [to]
--- fuji transfer --all
--- fuji createAndTransfer
--- create new folder, transfer photos to folder,
 
 data Env = Env
   { sdLib :: FilePath
@@ -112,7 +117,19 @@ execute = do
       )
   print "----------ENV----------"
   print env
-  error "not finished implementing"
+  print "----------RUNCOMMAND----------"
+  runCommand command env
+
+runCommand :: Command -> Env -> IO ()
+runCommand command env = case command of
+  Create name -> do
+    create env name
+  Transfer transf -> do
+    transfer env "" transf
+  CreateAndTransfer name transf -> do
+    createAndTransfer env name transf
+  GUI -> do
+    gui env
 
 data Command
   = Create String
