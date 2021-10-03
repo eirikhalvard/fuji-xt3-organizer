@@ -1,7 +1,6 @@
-module Lib (new, run) where
+module Lib (run) where
 
 import Data.Char (isSpace, toLower, toUpper)
-import Data.Semigroup ((<>))
 import Data.Time.Clock
 import Data.Time.Format
 import Options.Applicative
@@ -29,24 +28,67 @@ gui env = do
 
 setOrCreateDirectory :: Env -> IO ()
 setOrCreateDirectory env = do
+  createDirectoryIfMissing False (ssdLib env)
   setCurrentDirectory (ssdLib env)
-  let yearDir = "./" ++ year env
-  createDirectoryIfMissing False yearDir
-  setCurrentDirectory yearDir
 
 createStructure :: Env -> IO ()
 createStructure env = do
   createDirectory $ folderName env
-  createDirectory $ folderName env ++ "/" ++ jpgFolderName env
-  createDirectory $ folderName env ++ "/" ++ rawFolderName env
-  createDirectory $ folderName env ++ "/" ++ exportFolderName env
-  createDirectory $ folderName env ++ "/" ++ movieFolderName env
+  createDirectory $ jpgPath env
+  createDirectory $ rawPath env
+  createDirectory $ exportPath env
+  createDirectory $ moviePath env
 
 transferPhotos :: Env -> Transfer -> IO ()
 transferPhotos env AllTransfer = do
-  print "not yet implemented"
+  dirs <- getSDDirectories env
+  mapM_ (transferBatch env) dirs
 transferPhotos env (RangeTransfer from to) = do
   print "not yet implemented"
+
+transferBatch :: Env -> FilePath -> IO ()
+transferBatch env path = do
+  filenames <- listDirectory path
+  mapM_ (transferSingle env path) filenames
+
+transferSingle :: Env -> FilePath -> String -> IO ()
+transferSingle env path filename = do
+  let destination =
+        case withExtension filename of
+          Jpg _ -> jpgPath env
+          Raw _ -> rawPath env
+          Movie _ -> moviePath env
+          Export _ -> exportPath env
+      destinationAbsolute = ssdLib env ++ destination ++ "/" ++ filename
+      originAbsolute = path ++ "/" ++ filename
+  exists <- doesPathExist destinationAbsolute
+  if exists
+    then print ("SKIPPING EXISTING FILE (" ++ filename ++ ")")
+    else
+      print ("COPYING FILE " ++ filename)
+        >> copyFileWithMetadata originAbsolute destinationAbsolute
+        >> removeFile originAbsolute
+
+getExtension :: String -> String
+getExtension = tail . dropWhile (/= '.')
+
+data Extension = Jpg String | Raw String | Export String | Movie String
+
+withExtension :: String -> Extension
+withExtension filename = extended
+ where
+  ext = getExtension filename
+  extended
+    | isJpg ext = Jpg filename
+    | isRaw ext = Raw filename
+    | isMovie ext = Movie filename
+    | otherwise = Export filename
+
+isJpg, isRaw, isExport, isMovie :: String -> Bool
+isJpg extension = extension `elem` ["jpg", "jpeg", "JPG", "JPEG"]
+isRaw extension = extension `elem` ["raw", "raf", "RAW", "RAF"]
+isExport extension = not (isJpg extension || isRaw extension || isMovie extension)
+isMovie extension = extension `elem` ["mov", "MOV", "mp4", "MPEG4"]
 
 ---------------
 --  Helpers  --
@@ -61,6 +103,9 @@ getFolderName (Just name) = do
   prefix <- formatTime defaultTimeLocale "%Y-%m-%d - " <$> getCurrentTime
   let cleanName = capitalize . trim $ name
   return $ prefix ++ cleanName
+
+getSDDirectories :: Env -> IO [FilePath]
+getSDDirectories env = fmap (sdLib env ++) <$> listDirectory (sdLib env)
 
 trim :: String -> String
 trim = f . f
@@ -83,14 +128,20 @@ data Env = Env
   }
   deriving (Show, Eq)
 
+jpgPath, rawPath, exportPath, moviePath :: Env -> FilePath
+jpgPath env = folderName env ++ "/" ++ jpgFolderName env
+rawPath env = folderName env ++ "/" ++ rawFolderName env
+exportPath env = folderName env ++ "/" ++ exportFolderName env
+moviePath env = folderName env ++ "/" ++ movieFolderName env
+
 getEnv :: Maybe String -> IO Env
 getEnv mName = do
   year <- getYear
   folderName <- getFolderName mName
   return $
     Env
-      { sdLib = "/Volumes/Untitled/DCIM/147_FUJI/"
-      , ssdLib = "/Volumes/EirikT5/Pictures/Fuji/"
+      { sdLib = "/Volumes/Untitled/DCIM/"
+      , ssdLib = "/Volumes/EirikT5/Pictures/Fuji/" ++ year ++ "/"
       , jpgFolderName = "01_JPG"
       , rawFolderName = "02_RAW"
       , exportFolderName = "03_EXPORT"
@@ -105,20 +156,14 @@ run = execute
 execute :: IO ()
 execute = do
   command <- execParser opts
-  print "----------OPTIONS----------"
-  print command
-  env <-
-    getEnv
-      ( case command of
-          Create name -> Just name
-          Transfer _ -> Nothing
-          CreateAndTransfer name _ -> Just name
-          GUI -> Nothing
-      )
-  print "----------ENV----------"
-  print env
-  print "----------RUNCOMMAND----------"
+  env <- getEnv (getName command)
   runCommand command env
+
+getName :: Command -> Maybe String
+getName (Create name) = Just name
+getName (Transfer _) = Nothing
+getName (CreateAndTransfer name _) = Just name
+getName GUI = Nothing
 
 runCommand :: Command -> Env -> IO ()
 runCommand command env = case command of
@@ -130,6 +175,12 @@ runCommand command env = case command of
     createAndTransfer env name transf
   GUI -> do
     gui env
+
+test :: IO ()
+test = do
+  let command = CreateAndTransfer " sterk loking" AllTransfer
+  env <- getEnv $ getName command
+  runCommand command env
 
 data Command
   = Create String
