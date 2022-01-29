@@ -1,6 +1,7 @@
 module Lib (run) where
 
 import Data.Char (isSpace, toLower, toUpper)
+import Data.Maybe (fromMaybe)
 import Data.Time.Clock
 import Data.Time.Format
 import Options.Applicative
@@ -22,6 +23,19 @@ createAndTransfer env name transf = do
   createStructure env
   transferPhotos env transf
 
+showInfo :: Env -> IO ()
+showInfo env = do
+  checkExistence (sdLib env)
+  checkExistence (ssdLib env)
+  checkExistence (exportLib env)
+ where
+  checkExistence filepath = do
+    fp <- canonicalizePath filepath
+    exists <- doesDirectoryExist fp
+    if exists
+      then print $ "Folder " ++ filepath ++ " exists"
+      else print $ "Folder " ++ filepath ++ " does not exist"
+
 gui :: Env -> IO ()
 gui env = do
   print "not yet implemented gui"
@@ -33,11 +47,14 @@ setOrCreateDirectory env = do
 
 createStructure :: Env -> IO ()
 createStructure env = do
-  createDirectory $ folderName env
-  createDirectory $ jpgPath env
-  createDirectory $ rawPath env
-  createDirectory $ exportPath env
-  createDirectory $ moviePath env
+  createOrCrash $ folderName env
+  createOrCrash $ jpgPath env
+  createOrCrash $ rawPath env
+  createOrCrash $ exportPath env
+  createOrCrash $ moviePath env
+ where
+  createOrCrash Nothing = error "Cant create directories since no folder is provided"
+  createOrCrash (Just path) = createDirectory path
 
 transferPhotos :: Env -> Transfer -> IO ()
 transferPhotos env AllTransfer = do
@@ -53,12 +70,13 @@ transferBatch env path = do
 
 transferSingle :: Env -> FilePath -> String -> IO ()
 transferSingle env path filename = do
-  let destination =
+  let destinationM =
         case withExtension filename of
           Jpg _ -> jpgPath env
           Raw _ -> rawPath env
           Movie _ -> moviePath env
           Export _ -> exportPath env
+      destination = fromMaybe (error "Folder is not present, can't transfer") destinationM
       destinationAbsolute = ssdLib env ++ destination ++ "/" ++ filename
       originAbsolute = path ++ "/" ++ filename
   exists <- doesPathExist destinationAbsolute
@@ -97,12 +115,13 @@ isMovie extension = extension `elem` ["mov", "MOV", "mp4", "MPEG4"]
 getYear :: IO String
 getYear = formatTime defaultTimeLocale "%Y" <$> getCurrentTime
 
-getFolderName :: Maybe String -> IO String
-getFolderName Nothing = error "not yet implemented: not able to fetch list of folders and let the user choose an appropriate"
-getFolderName (Just name) = do
-  prefix <- formatTime defaultTimeLocale "%Y-%m-%d - " <$> getCurrentTime
-  let cleanName = capitalize . trim $ name
-  return $ prefix ++ cleanName
+getFolderName :: Maybe String -> IO (Maybe String)
+getFolderName = traverse constructFolderName
+ where
+  constructFolderName name = do
+    prefix <- formatTime defaultTimeLocale "%Y-%m-%d - " <$> getCurrentTime
+    let cleanName = capitalize . trim $ name
+    return $ prefix ++ cleanName
 
 getSDDirectories :: Env -> IO [FilePath]
 getSDDirectories env = fmap (sdLib env ++) <$> listDirectory (sdLib env)
@@ -119,29 +138,32 @@ capitalize (x : xs) = toUpper x : fmap toLower xs
 data Env = Env
   { sdLib :: FilePath
   , ssdLib :: FilePath
+  , exportLib :: FilePath
   , jpgFolderName :: String
   , rawFolderName :: String
   , exportFolderName :: String
   , movieFolderName :: String
   , year :: String
-  , folderName :: String
+  , folderName :: Maybe String
   }
   deriving (Show, Eq)
 
-jpgPath, rawPath, exportPath, moviePath :: Env -> FilePath
-jpgPath env = folderName env ++ "/" ++ jpgFolderName env
-rawPath env = folderName env ++ "/" ++ rawFolderName env
-exportPath env = folderName env ++ "/" ++ exportFolderName env
-moviePath env = folderName env ++ "/" ++ movieFolderName env
+jpgPath, rawPath, exportPath, moviePath :: Env -> Maybe FilePath
+jpgPath env = (\base -> base ++ "/" ++ jpgFolderName env) <$> folderName env
+rawPath env = (\base -> base ++ "/" ++ rawFolderName env) <$> folderName env
+exportPath env = (\base -> base ++ "/" ++ exportFolderName env) <$> folderName env
+moviePath env = (\base -> base ++ "/" ++ movieFolderName env) <$> folderName env
 
 getEnv :: Maybe String -> IO Env
 getEnv mName = do
   year <- getYear
   folderName <- getFolderName mName
+  homeDirectory <- getHomeDirectory
   return $
     Env
       { sdLib = "/Volumes/Untitled/DCIM/"
       , ssdLib = "/Volumes/EirikT5/Pictures/Fuji/" ++ year ++ "/"
+      , exportLib = homeDirectory ++ "/Pictures/Export/"
       , jpgFolderName = "01_JPG"
       , rawFolderName = "02_RAW"
       , exportFolderName = "03_EXPORT"
@@ -163,6 +185,7 @@ getName :: Command -> Maybe String
 getName (Create name) = Just name
 getName (Transfer _) = Nothing
 getName (CreateAndTransfer name _) = Just name
+getName Info = Nothing
 getName GUI = Nothing
 
 runCommand :: Command -> Env -> IO ()
@@ -173,6 +196,8 @@ runCommand command env = case command of
     transfer env "" transf
   CreateAndTransfer name transf -> do
     createAndTransfer env name transf
+  Info -> do
+    showInfo env
   GUI -> do
     gui env
 
@@ -186,6 +211,7 @@ data Command
   = Create String
   | Transfer Transfer
   | CreateAndTransfer String Transfer
+  | Info
   | GUI
   deriving (Show, Eq)
 
@@ -203,6 +229,7 @@ opts =
         ( command "create" (info createParser (progDesc "Add a folder to the SSD"))
             <> command "transfer" (info transferParser (progDesc "Transfer files from the SD card to the specified location"))
             <> command "createAndTransfer" (info createAndTransferParser (progDesc "Create a folder on the SSD and transfer the files from the SD card"))
+            <> command "info" (info informationParser (progDesc "Displays information"))
             <> command "gui" (info guiParser (progDesc "Launch the graphical user interface"))
         )
         <**> helper
@@ -225,6 +252,10 @@ createAndTransferParser =
   CreateAndTransfer
     <$> createComponentParser
     <*> transferComponentParser
+
+informationParser :: Parser Command
+informationParser =
+  pure Info
 
 guiParser :: Parser Command
 guiParser = pure GUI
