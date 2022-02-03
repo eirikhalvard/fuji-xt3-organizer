@@ -4,16 +4,16 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bef675688eabee5b107cf7e0d5fe03cfe694b7ed1dfe034e31c727dc65eb1893
+-- hash: c2d1dc2743eb59b8bb43c1b189b1fa26e4201d80a95d36b72f40738f4a6015d6
 
 name:           fuji
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/eirikhalvard/fuji#readme>
-homepage:       https://github.com/eirikhalvard/fuji#readme
-bug-reports:    https://github.com/eirikhalvard/fuji/issues
+description:    Please see the README on GitHub at <https://github.com/eirikhalvard/fuji-xt3-organizer#readme>
+homepage:       https://github.com/eirikhalvard/fuji-xt3-organizer#readme
+bug-reports:    https://github.com/eirikhalvard/fuji-xt3-organizer/issues
 author:         Eirik Halvard Sæther
 maintainer:     eirik.halvard.95@gmail.com
-copyright:      2021 Eirik Halvard Sæther
+copyright:      2022 Eirik Halvard Sæther
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -22,7 +22,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/eirikhalvard/fuji
+  location: https://github.com/eirikhalvard/fuji-xt3-organizer
 
 library
   exposed-modules:
@@ -32,7 +32,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      Hclip
+    , base >=4.7 && <5
     , containers
     , directory
     , extra
@@ -50,7 +51,8 @@ executable fuji
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Hclip
+    , base >=4.7 && <5
     , containers
     , directory
     , extra
@@ -70,7 +72,8 @@ test-suite fuji-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Hclip
+    , base >=4.7 && <5
     , containers
     , directory
     , extra

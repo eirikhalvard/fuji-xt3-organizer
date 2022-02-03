@@ -11,11 +11,13 @@ import Options.Applicative
 import System.Directory
 import System.FilePath
 import System.PosixCompat.Files (getFileStatus)
+import System.Hclip (setClipboard)
 
 create :: Env -> String -> IO ()
 create env name = do
   setOrCreateDirectory env
   createStructure env
+  mapM_ setClipboard (folderName env)
 
 transfer :: Env -> String -> Transfer -> IO ()
 transfer env name transf = do
@@ -27,6 +29,7 @@ createAndTransfer env name transf = do
   setOrCreateDirectory env
   createStructure env
   transferPhotos env transf
+  mapM_ setClipboard (folderName env)
 
 showInfo :: Env -> IO ()
 showInfo env = do
@@ -263,12 +266,6 @@ runCommand command env = case command of
     gui env
   ShowExport -> do
     showExport env
-
-test :: IO ()
-test = do
-  let command = CreateAndTransfer " sterk loking" AllTransfer
-  env <- getEnv $ getName command
-  runCommand command env
 
 data Command
   = Create String

@@ -1,10 +1,10 @@
 name:                fuji
 version:             0.1.0.0
-github:              "eirikhalvard/fuji"
+github:              "eirikhalvard/fuji-xt3-organizer"
 license:             BSD3
 author:              "Eirik Halvard Sæther"
 maintainer:          "eirik.halvard.95@gmail.com"
-copyright:           "2021 Eirik Halvard Sæther"
+copyright:           "2022 Eirik Halvard Sæther"
 
 extra-source-files:
 - README.md
@@ -16,7 +16,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/eirikhalvard/fuji#readme>
+description:         Please see the README on GitHub at <https://github.com/eirikhalvard/fuji-xt3-organizer#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -27,6 +27,7 @@ dependencies:
 - filepath
 - containers
 - extra
+- Hclip
 
 library:
   source-dirs: src
