@@ -10,8 +10,8 @@ import Data.Time.Format
 import Options.Applicative
 import System.Directory
 import System.FilePath
-import System.PosixCompat.Files (getFileStatus)
 import System.Hclip (setClipboard)
+import System.PosixCompat.Files (getFileStatus)
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -66,16 +66,18 @@ showExportMap =
     )
 
 showNumBytes :: Integer -> String
-showNumBytes n = show n
-
--- TODO: implement
--- let numString = reverse $ show n
---     chunks = chunksOf 3 numString
---  in case chunks of
---       [] -> "invalid value"
---       [v] -> reverse v
---       (prefix:rest) -> reverse v ++ " " ++ case length rest of
---                                              1 -> "K"
+showNumBytes n = prefix ++ getPostfix (length rest `div` 3)
+ where
+  numString = show n
+  numLength = length numString
+  numDigitsToDisplay = ((numLength -1) `mod` 3) + 1
+  (prefix, rest) = splitAt numDigitsToDisplay numString
+  getPostfix 0 = ""
+  getPostfix 1 = "K"
+  getPostfix 2 = "M"
+  getPostfix 3 = "G"
+  getPostfix 4 = "T"
+  getPostfix _ = error "get fucked"
 
 createExportMap :: Env -> IO [(String, Set (String, Integer))]
 createExportMap env = do
