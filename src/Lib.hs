@@ -1,11 +1,16 @@
 module Lib (run) where
 
 import Data.Char (isSpace, toLower, toUpper)
+import Data.List.Extra (chunksOf)
 import Data.Maybe (fromMaybe)
+import Data.Set (Set)
+import qualified Data.Set as S
 import Data.Time.Clock
 import Data.Time.Format
 import Options.Applicative
 import System.Directory
+import System.FilePath
+import System.PosixCompat.Files (getFileStatus)
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -39,6 +44,61 @@ showInfo env = do
 gui :: Env -> IO ()
 gui env = do
   print "not yet implemented gui"
+
+showExport :: Env -> IO ()
+showExport env = do
+  exportInfo <- createExportMap env
+  showExportMap exportInfo
+
+showExportMap :: [(String, Set (String, Integer))] -> IO ()
+showExportMap =
+  mapM_
+    ( \(name, info) ->
+        putStrLn $
+          name
+            ++ ": "
+            ++ show (length info)
+            ++ " number of items, total bytes: "
+            ++ showNumBytes (sum (S.map snd info))
+    )
+
+showNumBytes :: Integer -> String
+showNumBytes n = show n
+
+-- TODO: implement
+-- let numString = reverse $ show n
+--     chunks = chunksOf 3 numString
+--  in case chunks of
+--       [] -> "invalid value"
+--       [v] -> reverse v
+--       (prefix:rest) -> reverse v ++ " " ++ case length rest of
+--                                              1 -> "K"
+
+createExportMap :: Env -> IO [(String, Set (String, Integer))]
+createExportMap env = do
+  setCurrentDirectory (exportLib env)
+  let excludeFolders = [".DS_Store", "iPod Photo Cache", "Gifs"]
+  folders <- System.Directory.listDirectory "."
+  let relevantFolders = filter (`notElem` excludeFolders) folders
+  mapM getFolderEntry relevantFolders
+
+getFolderEntry :: FilePath -> IO (String, Set (String, Integer))
+getFolderEntry filepath = do
+  let baseName = takeBaseName filepath
+  infoSet <- withCurrentDirectory filepath $ getFolderInfo "."
+  return (baseName, infoSet)
+
+getFolderInfo :: FilePath -> IO (Set (String, Integer))
+getFolderInfo filepath = do
+  entries <- listDirectory "."
+  information <- mapM getFileInfo entries
+  return $ S.fromList information
+
+getFileInfo :: FilePath -> IO (String, Integer)
+getFileInfo filepath = do
+  size <- getFileSize filepath
+  let baseName = takeBaseName filepath
+  return (baseName, size)
 
 setOrCreateDirectory :: Env -> IO ()
 setOrCreateDirectory env = do
@@ -187,6 +247,7 @@ getName (Transfer _) = Nothing
 getName (CreateAndTransfer name _) = Just name
 getName Info = Nothing
 getName GUI = Nothing
+getName ShowExport = Nothing
 
 runCommand :: Command -> Env -> IO ()
 runCommand command env = case command of
@@ -200,6 +261,8 @@ runCommand command env = case command of
     showInfo env
   GUI -> do
     gui env
+  ShowExport -> do
+    showExport env
 
 test :: IO ()
 test = do
@@ -213,6 +276,7 @@ data Command
   | CreateAndTransfer String Transfer
   | Info
   | GUI
+  | ShowExport
   deriving (Show, Eq)
 
 data Transfer
@@ -231,6 +295,7 @@ opts =
             <> command "createAndTransfer" (info createAndTransferParser (progDesc "Create a folder on the SSD and transfer the files from the SD card"))
             <> command "info" (info informationParser (progDesc "Displays information"))
             <> command "gui" (info guiParser (progDesc "Launch the graphical user interface"))
+            <> command "export" (info exportParser (progDesc "Show the export folder"))
         )
         <**> helper
     )
@@ -259,6 +324,9 @@ informationParser =
 
 guiParser :: Parser Command
 guiParser = pure GUI
+
+exportParser :: Parser Command
+exportParser = pure ShowExport
 
 createComponentParser :: Parser String
 createComponentParser =

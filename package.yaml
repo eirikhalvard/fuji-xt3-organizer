@@ -23,6 +23,10 @@ dependencies:
 - directory
 - time
 - optparse-applicative
+- unix-compat
+- filepath
+- containers
+- extra
 
 library:
   source-dirs: src

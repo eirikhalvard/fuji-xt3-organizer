@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 071f410edd89170a3757fee6135e00596ffd967bfddacc29b837e0c897731977
+-- hash: bef675688eabee5b107cf7e0d5fe03cfe694b7ed1dfe034e31c727dc65eb1893
 
 name:           fuji
 version:        0.1.0.0
@@ -33,9 +33,13 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , containers
     , directory
+    , extra
+    , filepath
     , optparse-applicative
     , time
+    , unix-compat
   default-language: Haskell2010
 
 executable fuji
@@ -47,10 +51,14 @@ executable fuji
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , directory
+    , extra
+    , filepath
     , fuji
     , optparse-applicative
     , time
+    , unix-compat
   default-language: Haskell2010
 
 test-suite fuji-test
@@ -63,8 +71,12 @@ test-suite fuji-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , directory
+    , extra
+    , filepath
     , fuji
     , optparse-applicative
     , time
+    , unix-compat
   default-language: Haskell2010
