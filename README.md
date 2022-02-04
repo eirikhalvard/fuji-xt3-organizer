@@ -14,6 +14,6 @@ will show a user guide for the `fuji` script
 
 ---
 
-`source <(fuji --bash-completion-script `which fuji`)`
+``source <(fuji --bash-completion-script `which fuji`)``
 
 will install auto completion for zsh.
