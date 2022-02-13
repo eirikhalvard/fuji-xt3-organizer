@@ -1,4 +1,8 @@
-module Lib (run) where
+module Lib where
+
+import Cli
+import Gui
+import Types
 
 import Data.Char (isSpace, toLower, toUpper)
 import Data.List.Extra (chunksOf)
@@ -7,7 +11,6 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Time.Clock
 import Data.Time.Format
-import Options.Applicative
 import System.Directory
 import System.FilePath
 import System.Hclip (setClipboard)
@@ -45,8 +48,7 @@ showInfo env = do
       else print $ "Folder " ++ filepath ++ " does not exist"
 
 gui :: Env -> IO ()
-gui env = do
-  putStrLn "not yet implemented gui"
+gui = runGui
 
 showExport :: Env -> IO ()
 showExport env = do
@@ -201,20 +203,6 @@ capitalize :: String -> String
 capitalize "" = ""
 capitalize (x : xs) = toUpper x : fmap toLower xs
 
-data Env = Env
-  { sdLib :: FilePath
-  , ssdLib :: FilePath
-  , exportLib :: FilePath
-  , jpgFolderName :: String
-  , rawFolderName :: String
-  , exportFolderName :: String
-  , movieFolderName :: String
-  , year :: String
-  , folderName :: Maybe String
-  , canonicalFilenamePrefix :: String
-  }
-  deriving (Show, Eq)
-
 jpgPath, rawPath, exportPath, moviePath :: Env -> Maybe FilePath
 jpgPath env = (\base -> base ++ "/" ++ jpgFolderName env) <$> folderName env
 rawPath env = (\base -> base ++ "/" ++ rawFolderName env) <$> folderName env
@@ -241,15 +229,6 @@ getEnv mName = do
       , canonicalFilenamePrefix = canonicalFilenamePrefix
       }
 
-run :: IO ()
-run = execute
-
-execute :: IO ()
-execute = do
-  command <- execParser opts
-  env <- getEnv (getName command)
-  runCommand command env
-
 getName :: Command -> Maybe String
 getName (Create name) = Just name
 getName (Transfer _) = Nothing
@@ -272,95 +251,3 @@ runCommand command env = case command of
     gui env
   ShowExport -> do
     showExport env
-
-data Command
-  = Create String
-  | Transfer Transfer
-  | CreateAndTransfer String Transfer
-  | Info
-  | GUI
-  | ShowExport
-  deriving (Show, Eq)
-
-data Transfer
-  = RangeTransfer Int Int
-  | AllTransfer
-  deriving (Show, Eq)
-
------------- Parser
-
-opts :: ParserInfo Command
-opts =
-  info
-    ( hsubparser
-        ( command "create" (info createParser (progDesc "Add a folder to the SSD"))
-            <> command "transfer" (info transferParser (progDesc "Transfer files from the SD card to the specified location"))
-            <> command "createAndTransfer" (info createAndTransferParser (progDesc "Create a folder on the SSD and transfer the files from the SD card"))
-            <> command "info" (info informationParser (progDesc "Displays information"))
-            <> command "gui" (info guiParser (progDesc "Launch the graphical user interface"))
-            <> command "export" (info exportParser (progDesc "Show the export folder"))
-        )
-        <**> helper
-    )
-    ( fullDesc
-        <> progDesc "Helps create folders and transfer photos between SD card and external SSD"
-        <> header "Fujifilm X-T3 Transfer Script"
-    )
-
-createParser :: Parser Command
-createParser =
-  Create <$> createComponentParser
-
-transferParser :: Parser Command
-transferParser =
-  Transfer <$> transferComponentParser
-
-createAndTransferParser :: Parser Command
-createAndTransferParser =
-  CreateAndTransfer
-    <$> createComponentParser
-    <*> transferComponentParser
-
-informationParser :: Parser Command
-informationParser =
-  pure Info
-
-guiParser :: Parser Command
-guiParser = pure GUI
-
-exportParser :: Parser Command
-exportParser = pure ShowExport
-
-createComponentParser :: Parser String
-createComponentParser =
-  strOption
-    ( long "name"
-        <> metavar "SESSION_NAME"
-        <> help "Name of the photo session"
-    )
-
-transferComponentParser :: Parser Transfer
-transferComponentParser =
-  transferAllParser <|> transferRangeParser
-
-transferAllParser :: Parser Transfer
-transferAllParser =
-  flag' AllTransfer (long "all" <> help "transfer all photos from SD card")
-
-transferRangeParser :: Parser Transfer
-transferRangeParser =
-  RangeTransfer
-    <$> option
-      auto
-      ( long "from"
-          <> short 'F'
-          <> metavar "INT"
-          <> help "Number to start transfering from"
-      )
-    <*> option
-      auto
-      ( long "to"
-          <> short 'T'
-          <> metavar "INT"
-          <> help "Number to start transfering to"
-      )

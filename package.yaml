@@ -28,6 +28,8 @@ dependencies:
 - containers
 - extra
 - Hclip
+- brick
+- vty
 
 library:
   source-dirs: src
