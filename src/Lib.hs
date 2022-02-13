@@ -7,6 +7,7 @@ import Types
 import qualified Brick.BChan as BC
 import qualified Brick.Main as M
 import Control.Concurrent (threadDelay)
+import Control.Monad.Extra (zipWithM_)
 import Data.Char (isSpace, toLower, toUpper)
 import Data.List.Extra (chunksOf)
 import Data.Maybe (fromMaybe)
@@ -18,7 +19,6 @@ import System.Directory
 import System.FilePath
 import System.Hclip (setClipboard)
 import System.PosixCompat.Files (getFileStatus)
-import Control.Applicative (Applicative(liftA2))
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -48,8 +48,8 @@ showInfo env = do
     fp <- canonicalizePath filepath
     exists <- doesDirectoryExist fp
     if exists
-      then print $ "Folder " ++ filepath ++ " exists"
-      else print $ "Folder " ++ filepath ++ " does not exist"
+      then putStrLn $ "Folder " ++ filepath ++ " exists"
+      else putStrLn $ "Folder " ++ filepath ++ " does not exist"
 
 gui :: Env -> IO ()
 gui env = return ()
@@ -137,11 +137,10 @@ transferPhotos env (RangeTransfer from to) = do
 transferBatch :: Env -> FilePath -> IO ()
 transferBatch env path = do
   filenames <- listDirectory path
-  sequence_ $
-    liftA2
-      (transferSingle env path)
-      [fromIntegral n / fromIntegral (length filenames) | n <- [1..]]
-      filenames
+  zipWithM_
+    (transferSingle env path)
+    [fromIntegral n / fromIntegral (length filenames) | n <- [1 ..]]
+    filenames
 
 transferSingle :: Env -> FilePath -> Float -> String -> IO ()
 transferSingle env path progress filename = do
