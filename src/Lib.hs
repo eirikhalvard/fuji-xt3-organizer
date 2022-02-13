@@ -46,7 +46,7 @@ showInfo env = do
 
 gui :: Env -> IO ()
 gui env = do
-  print "not yet implemented gui"
+  putStrLn "not yet implemented gui"
 
 showExport :: Env -> IO ()
 showExport env = do
@@ -126,7 +126,7 @@ transferPhotos env AllTransfer = do
   dirs <- getSDDirectories env
   mapM_ (transferBatch env) dirs
 transferPhotos env (RangeTransfer from to) = do
-  print "not yet implemented"
+  putStrLn "not yet implemented"
 
 transferBatch :: Env -> FilePath -> IO ()
 transferBatch env path = do
@@ -284,6 +284,7 @@ data Transfer
   deriving (Show, Eq)
 
 ------------ Parser
+
 
 opts :: ParserInfo Command
 opts =
