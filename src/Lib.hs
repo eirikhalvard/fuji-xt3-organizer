@@ -142,7 +142,8 @@ transferSingle env path filename = do
           Movie _ -> moviePath env
           Export _ -> exportPath env
       destination = fromMaybe (error "Folder is not present, can't transfer") destinationM
-      destinationAbsolute = ssdLib env ++ destination ++ "/" ++ filename
+      canonicalFilename = canonicalFilenamePrefix env ++ "_" ++ filename
+      destinationAbsolute = ssdLib env ++ destination ++ "/" ++ canonicalFilename
       originAbsolute = path ++ "/" ++ filename
   exists <- doesPathExist destinationAbsolute
   if exists
@@ -210,6 +211,7 @@ data Env = Env
   , movieFolderName :: String
   , year :: String
   , folderName :: Maybe String
+  , canonicalFilenamePrefix :: String
   }
   deriving (Show, Eq)
 
@@ -222,6 +224,7 @@ moviePath env = (\base -> base ++ "/" ++ movieFolderName env) <$> folderName env
 getEnv :: Maybe String -> IO Env
 getEnv mName = do
   year <- getYear
+  canonicalFilenamePrefix <- formatTime defaultTimeLocale "%y%m%d" <$> getCurrentTime
   folderName <- getFolderName mName
   homeDirectory <- getHomeDirectory
   return $
@@ -235,6 +238,7 @@ getEnv mName = do
       , movieFolderName = "04_MOV"
       , year = year
       , folderName = folderName
+      , canonicalFilenamePrefix = canonicalFilenamePrefix
       }
 
 run :: IO ()
@@ -284,7 +288,6 @@ data Transfer
   deriving (Show, Eq)
 
 ------------ Parser
-
 
 opts :: ParserInfo Command
 opts =
