@@ -1,8 +1,8 @@
 module Main where
 
+import Cli
 import Lib
 import Types
-import Cli
 
 main :: IO ()
 main = do
