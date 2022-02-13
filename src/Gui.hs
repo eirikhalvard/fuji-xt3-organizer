@@ -15,18 +15,15 @@ import Brick.Widgets.Core (
   (<=>),
  )
 import qualified Brick.Widgets.ProgressBar as P
-import Control.Concurrent (threadDelay, forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Types
 
-runGui :: Env -> IO ()
-runGui env = do
-  eventChan <- BC.newBChan 10
+runGui :: BC.BChan ApplicationEvent -> AppState -> IO () -> IO ()
+runGui eventChan initialState program = do
+  mainThreadId <- forkIO program
 
-  mainThreadId <- forkIO $ simulateTransfer eventChan 100 
-
-  let initialState = 0.0
-      buildVty = V.mkVty V.defaultConfig
+  let buildVty = V.mkVty V.defaultConfig
   initialVty <- buildVty
   finalState <-
     M.customMain
@@ -35,23 +32,18 @@ runGui env = do
       (Just eventChan)
       app
       initialState
-  print finalState
-
-type AppState = Float
-
-data ApplicationEvent
-  = TransferProgress Float
+  return ()
 
 valid :: Float -> Float
 valid = clamp (0.0 :: Float) 1.0
 
 simulateTransfer :: BC.BChan ApplicationEvent -> Int -> IO ()
-simulateTransfer chan num = mapM_ transferOne [1..num]
-  where transferOne n = do
-            threadDelay 20000 -- wait 0.2 per transfer
-            let progress = TransferProgress (fromIntegral n / fromIntegral num)
-            BC.writeBChan chan progress
-
+simulateTransfer chan num = mapM_ transferOne [1 .. num]
+ where
+  transferOne n = do
+    threadDelay 20000 -- wait 0.2 per transfer
+    let progress = TransferProgress (fromIntegral n / fromIntegral num)
+    BC.writeBChan chan progress
 
 app :: M.App AppState ApplicationEvent String
 app =
@@ -64,7 +56,26 @@ app =
     }
 
 guiDraw :: AppState -> [T.Widget String]
-guiDraw appState = [ui]
+guiDraw (State env commandState) = [ui]
+ where
+  ui = case commandState of
+    CreateState name ->
+      str "create ..."
+    TransferState transfer num ->
+      str "transfer ..."
+        <=> progressWidget "Transfer progress: " num
+    CreateAndTransferState name transfer num ->
+      str "create and transfer ..."
+        <=> progressWidget "Transfer progress: " num
+    InfoState ->
+      str "info ..."
+    GUIState ->
+      str "gui ..."
+    ShowExportState ->
+      str "show export ..."
+
+progressWidget :: String -> Float -> T.Widget String
+progressWidget progressName progress = ui
  where
   transferBar =
     updateAttrMap
@@ -74,27 +85,25 @@ guiDraw appState = [ui]
           ]
       )
       bar
-  label = Just $ show (fromEnum $ appState * 100) ++ "%"
-  bar = P.progressBar label appState
-  ui =
-    (str "Transfer progress: " <+> transferBar)
-      <=> str ""
-      <=> str "Hit 'j' or 'k' to advance progress, q to quit"
+  label = Just $ show (fromEnum $ progress * 100) ++ "%"
+  bar = P.progressBar label progress
+  ui = str progressName <+> transferBar
 
 guiChooseCursor :: AppState -> [T.CursorLocation String] -> Maybe (T.CursorLocation String)
 guiChooseCursor = const . const Nothing
 
 guiHandleEvent :: AppState -> T.BrickEvent String ApplicationEvent -> T.EventM String (T.Next AppState)
-guiHandleEvent appState (T.VtyEvent e) =
-  case e of
-    V.EvKey (V.KChar 'j') [] -> M.continue $ valid (appState - 0.07)
-    V.EvKey (V.KChar 'k') [] -> case appState + 0.07 of
-      s | s >= 1 -> M.halt 42.0
-      s | otherwise -> M.continue $ valid s
-    V.EvKey (V.KChar 'q') [] -> M.halt (- 1.0)
-    _ -> M.continue appState
-guiHandleEvent appState (T.AppEvent (TransferProgress n)) = M.continue $ valid n
+guiHandleEvent appState (T.AppEvent (TransferProgress n)) =
+  M.continue $ updateProgress appState (valid n)
+guiHandleEvent appState (T.AppEvent Finished) = M.halt appState
 guiHandleEvent appState _ = M.continue appState
+
+updateProgress :: AppState -> Float -> AppState
+updateProgress (State env (TransferState transfer _)) newNum =
+  State env (TransferState transfer newNum)
+updateProgress (State env (CreateAndTransferState name transfer _)) newNum =
+  State env (CreateAndTransferState name transfer newNum)
+updateProgress other _ = other
 
 doneAttr, todoAttr :: A.AttrName
 doneAttr = theBaseAttr <> A.attrName "X:done"

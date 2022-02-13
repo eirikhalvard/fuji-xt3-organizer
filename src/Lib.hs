@@ -4,6 +4,9 @@ import Cli
 import Gui
 import Types
 
+import qualified Brick.BChan as BC
+import qualified Brick.Main as M
+import Control.Concurrent (threadDelay)
 import Data.Char (isSpace, toLower, toUpper)
 import Data.List.Extra (chunksOf)
 import Data.Maybe (fromMaybe)
@@ -15,6 +18,7 @@ import System.Directory
 import System.FilePath
 import System.Hclip (setClipboard)
 import System.PosixCompat.Files (getFileStatus)
+import Control.Applicative (Applicative(liftA2))
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -48,7 +52,7 @@ showInfo env = do
       else print $ "Folder " ++ filepath ++ " does not exist"
 
 gui :: Env -> IO ()
-gui = runGui
+gui env = return ()
 
 showExport :: Env -> IO ()
 showExport env = do
@@ -133,10 +137,14 @@ transferPhotos env (RangeTransfer from to) = do
 transferBatch :: Env -> FilePath -> IO ()
 transferBatch env path = do
   filenames <- listDirectory path
-  mapM_ (transferSingle env path) filenames
+  sequence_ $
+    liftA2
+      (transferSingle env path)
+      [fromIntegral n / fromIntegral (length filenames) | n <- [1..]]
+      filenames
 
-transferSingle :: Env -> FilePath -> String -> IO ()
-transferSingle env path filename = do
+transferSingle :: Env -> FilePath -> Float -> String -> IO ()
+transferSingle env path progress filename = do
   let destinationM =
         case withExtension filename of
           Jpg _ -> jpgPath env
@@ -154,11 +162,10 @@ transferSingle env path filename = do
       print ("COPYING FILE " ++ filename)
         >> copyFileWithMetadata originAbsolute destinationAbsolute
         >> removeFile originAbsolute
+        >> event env (TransferProgress progress)
 
 getExtension :: String -> String
 getExtension = tail . dropWhile (/= '.')
-
-data Extension = Jpg String | Raw String | Export String | Movie String
 
 withExtension :: String -> Extension
 withExtension filename = extended
@@ -209,8 +216,8 @@ rawPath env = (\base -> base ++ "/" ++ rawFolderName env) <$> folderName env
 exportPath env = (\base -> base ++ "/" ++ exportFolderName env) <$> folderName env
 moviePath env = (\base -> base ++ "/" ++ movieFolderName env) <$> folderName env
 
-getEnv :: Maybe String -> IO Env
-getEnv mName = do
+getEnv :: Maybe String -> BC.BChan ApplicationEvent -> IO Env
+getEnv mName chan = do
   year <- getYear
   canonicalFilenamePrefix <- formatTime defaultTimeLocale "%y%m%d" <$> getCurrentTime
   folderName <- getFolderName mName
@@ -227,6 +234,7 @@ getEnv mName = do
       , year = year
       , folderName = folderName
       , canonicalFilenamePrefix = canonicalFilenamePrefix
+      , eventChan = chan
       }
 
 getName :: Command -> Maybe String
@@ -237,17 +245,27 @@ getName Info = Nothing
 getName GUI = Nothing
 getName ShowExport = Nothing
 
+event :: Env -> ApplicationEvent -> IO ()
+event env = BC.writeBChan (eventChan env)
+
 runCommand :: Command -> Env -> IO ()
-runCommand command env = case command of
-  Create name -> do
-    create env name
-  Transfer transf -> do
-    transfer env "" transf
-  CreateAndTransfer name transf -> do
-    createAndTransfer env name transf
-  Info -> do
-    showInfo env
-  GUI -> do
-    gui env
-  ShowExport -> do
-    showExport env
+runCommand command env =
+  case command of
+    Create name -> runWithGui (CreateState name) $ do
+      create env name
+    Transfer transf -> runWithGui (TransferState transf 0.0) $ do
+      transfer env "" transf
+    CreateAndTransfer name transf -> runWithGui (CreateAndTransferState name transf 0.0) $ do
+      createAndTransfer env name transf
+    Info -> runWithGui InfoState $ do
+      showInfo env
+    GUI -> runWithGui GUIState $ do
+      gui env
+    ShowExport -> runWithGui ShowExportState $ do
+      showExport env
+ where
+  runWithGui cmdState program =
+    runGui
+      (eventChan env)
+      (State env cmdState)
+      (program <* threadDelay 2000000 <* event env Finished)
