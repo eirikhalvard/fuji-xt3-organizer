@@ -3,6 +3,7 @@ module Gui where
 import qualified Graphics.Vty as V
 
 import qualified Brick.AttrMap as A
+import qualified Brick.BChan as BC
 import qualified Brick.Main as M
 import qualified Brick.Types as T
 import Brick.Util (bg, clamp, fg, on)
@@ -14,22 +15,45 @@ import Brick.Widgets.Core (
   (<=>),
  )
 import qualified Brick.Widgets.ProgressBar as P
-import Control.Concurrent (threadDelay)
+import Control.Concurrent (threadDelay, forkIO)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Types
 
 runGui :: Env -> IO ()
 runGui env = do
+  eventChan <- BC.newBChan 10
+
+  mainThreadId <- forkIO $ simulateTransfer eventChan 100 
+
   let initialState = 0.0
-  finalState <- M.defaultMain app initialState
+      buildVty = V.mkVty V.defaultConfig
+  initialVty <- buildVty
+  finalState <-
+    M.customMain
+      initialVty
+      buildVty
+      (Just eventChan)
+      app
+      initialState
   print finalState
 
 type AppState = Float
 
--- data ApplicationEvent = 
---   TransferProgress Float
+data ApplicationEvent
+  = TransferProgress Float
 
-app :: M.App AppState () String
+valid :: Float -> Float
+valid = clamp (0.0 :: Float) 1.0
+
+simulateTransfer :: BC.BChan ApplicationEvent -> Int -> IO ()
+simulateTransfer chan num = mapM_ transferOne [1..num]
+  where transferOne n = do
+            threadDelay 20000 -- wait 0.2 per transfer
+            let progress = TransferProgress (fromIntegral n / fromIntegral num)
+            BC.writeBChan chan progress
+
+
+app :: M.App AppState ApplicationEvent String
 app =
   M.App
     { M.appDraw = guiDraw
@@ -60,16 +84,16 @@ guiDraw appState = [ui]
 guiChooseCursor :: AppState -> [T.CursorLocation String] -> Maybe (T.CursorLocation String)
 guiChooseCursor = const . const Nothing
 
-guiHandleEvent :: AppState -> T.BrickEvent String () -> T.EventM String (T.Next AppState)
+guiHandleEvent :: AppState -> T.BrickEvent String ApplicationEvent -> T.EventM String (T.Next AppState)
 guiHandleEvent appState (T.VtyEvent e) =
-  let valid = clamp (0.0 :: Float) 1.0
-   in case e of
-        V.EvKey (V.KChar 'j') [] -> M.continue $ valid (appState - 0.07)
-        V.EvKey (V.KChar 'k') [] -> case appState + 0.07 of
-          s | s >= 1 -> M.halt 42.0
-          s | otherwise -> M.continue $ valid s
-        V.EvKey (V.KChar 'q') [] -> M.halt (- 1.0)
-        _ -> M.continue appState
+  case e of
+    V.EvKey (V.KChar 'j') [] -> M.continue $ valid (appState - 0.07)
+    V.EvKey (V.KChar 'k') [] -> case appState + 0.07 of
+      s | s >= 1 -> M.halt 42.0
+      s | otherwise -> M.continue $ valid s
+    V.EvKey (V.KChar 'q') [] -> M.halt (- 1.0)
+    _ -> M.continue appState
+guiHandleEvent appState (T.AppEvent (TransferProgress n)) = M.continue $ valid n
 guiHandleEvent appState _ = M.continue appState
 
 doneAttr, todoAttr :: A.AttrName
