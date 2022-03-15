@@ -34,12 +34,15 @@ packages:
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
 #
+# - acme-missiles-0.3
+# - git: https://github.com/adinapoli/haskell-AppleScript/blob/bump-deps/stack.yaml
+#   commit: f98f45714264f3b58ebf9f0b5765536e05c68162
+#
 extra-deps:
 - Hclip-3.0.0.4@sha256:df341c936594465df25c3b9f93f6ebe3110a36d64a51dbbd1dbd557394bbdba4,1648
-# - acme-missiles-0.3
-# - git: https://github.com/commercialhaskell/stack.git
-#   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
-#
+- git: https://github.com/adinapoli/haskell-AppleScript.git
+  commit: 8919a8a4b02ae9f7b4861a42a050c8c5fdd60ed2
+- network-2.6.3.6@sha256:1ca79d81af02d7acd6032d5e6c9bde4618a8fdcfbe19bd42b49d420183975df0,2666
 # extra-deps: []
 
 # Override default flag values for local packages and extra-deps

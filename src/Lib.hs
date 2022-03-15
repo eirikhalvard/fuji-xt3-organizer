@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Lib where
 
 import Cli
@@ -15,10 +17,20 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Time.Clock
 import Data.Time.Format
+import Foreign.AppleScript
 import System.Directory
 import System.FilePath
 import System.Hclip (setClipboard)
 import System.PosixCompat.Files (getFileStatus)
+
+runApplescriptTest :: IO ()
+runApplescriptTest = do
+  runScript
+    [applescript| 
+      open location $value{location}$ 
+    |]
+
+location = "https://github.com/"
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -43,6 +55,7 @@ showInfo env = do
   checkExistence (sdLib env)
   checkExistence (ssdLib env)
   checkExistence (exportLib env)
+  runApplescriptTest
  where
   checkExistence filepath = do
     fp <- canonicalizePath filepath

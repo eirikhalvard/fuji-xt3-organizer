@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 724e14a212a2cb5f451a2d29403e8327ae42c471906e71e619d2dee87c54d84f
+-- hash: 151062864b2bb8dd2c862f3c8465819c5f24f63381e327677b33d68d9340294d
 
 name:           fuji
 version:        0.1.0.0
@@ -35,13 +35,15 @@ library
   hs-source-dirs:
       src
   build-depends:
-      Hclip
+      AppleScript
+    , Hclip
     , base >=4.7 && <5
     , brick
     , containers
     , directory
     , extra
     , filepath
+    , network >=2.3 && <=2.6.3.6
     , optparse-applicative
     , time
     , unix-compat
@@ -56,7 +58,8 @@ executable fuji
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      Hclip
+      AppleScript
+    , Hclip
     , base >=4.7 && <5
     , brick
     , containers
@@ -64,6 +67,7 @@ executable fuji
     , extra
     , filepath
     , fuji
+    , network >=2.3 && <=2.6.3.6
     , optparse-applicative
     , time
     , unix-compat
@@ -79,7 +83,8 @@ test-suite fuji-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      Hclip
+      AppleScript
+    , Hclip
     , base >=4.7 && <5
     , brick
     , containers
@@ -87,6 +92,7 @@ test-suite fuji-test
     , extra
     , filepath
     , fuji
+    , network >=2.3 && <=2.6.3.6
     , optparse-applicative
     , time
     , unix-compat
