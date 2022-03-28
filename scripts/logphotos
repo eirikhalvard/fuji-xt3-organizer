@@ -1,0 +1,21 @@
+#!/usr/bin/env osascript
+
+# format of output:
+# |||albumname;;;name1;;;name2|||album2;;;n1;;;n2;;;n3
+
+tell application "Photos"
+    set output to ""
+    repeat with i in albums
+        set tFolder to (the POSIX path of "/Users/n647546/Pictures/Export/" & (get name of i)) as POSIX file as text
+        repeat 1 times
+            set theimages to get media items of i
+            set output to output & "|||" & (get name of i)
+            repeat with image in theimages
+                set imgFilename to the ({filename of image})
+                set output to output & ";;;" & imgFilename
+            end repeat
+        end repeat
+    end repeat
+end tell
+
+return output

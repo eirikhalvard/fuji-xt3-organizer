@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module Lib where
 
 import Cli
@@ -9,28 +7,32 @@ import Types
 import qualified Brick.BChan as BC
 import qualified Brick.Main as M
 import Control.Concurrent (threadDelay)
+import qualified Control.Concurrent as Thread
 import Control.Monad.Extra (zipWithM_)
 import Data.Char (isSpace, toLower, toUpper)
-import Data.List.Extra (chunksOf)
+import Data.List.Extra (chunksOf, dropPrefix, splitOn)
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Time.Clock
 import Data.Time.Format
-import Foreign.AppleScript
 import System.Directory
 import System.FilePath
 import System.Hclip (setClipboard)
 import System.PosixCompat.Files (getFileStatus)
+import System.Process.Extra (readProcess)
 
-runApplescriptTest :: IO ()
-runApplescriptTest = do
-  runScript
-    [applescript| 
-      open location $value{location}$ 
-    |]
+getLoggedPhotos :: IO [(String, [String])]
+getLoggedPhotos = parseLoggedPhotos <$> readProcess "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/logphotos" [] ""
 
-location = "https://github.com/"
+parseLoggedPhotos :: String -> [(String, [String])]
+parseLoggedPhotos str = parsed
+ where
+  splitted = splitOn ";;;" <$> splitOnWithPrefix "|||" str
+  parsed = fmap parseOneAlbum splitted
+  parseOneAlbum [] = error "PARSE error from logging photos: no album name or files"
+  parseOneAlbum (album : files) = (album, files)
+  splitOnWithPrefix sep = splitOn sep . dropPrefix sep
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -55,14 +57,17 @@ showInfo env = do
   checkExistence (sdLib env)
   checkExistence (ssdLib env)
   checkExistence (exportLib env)
-  runApplescriptTest
+  output <- getLoggedPhotos
+  mapM_ (\(album, files) -> putStr album <* print files) output
+  print output
+  print "hello"
  where
   checkExistence filepath = do
     fp <- canonicalizePath filepath
     exists <- doesDirectoryExist fp
     if exists
-      then putStrLn $ "Folder " ++ filepath ++ " exists"
-      else putStrLn $ "Folder " ++ filepath ++ " does not exist"
+      then print $ "Folder " ++ filepath ++ " exists"
+      else print $ "Folder " ++ filepath ++ " does not exist"
 
 gui :: Env -> IO ()
 gui env = return ()
@@ -280,4 +285,4 @@ runCommand command env =
     runGui
       (eventChan env)
       (State env cmdState)
-      (program <* threadDelay 2000000 <* event env Finished)
+      (program <* threadDelay 6000000 <* event env Finished)

@@ -30,8 +30,6 @@ dependencies:
 - Hclip
 - brick
 - vty
-- network >= 2.3 && <= 2.6.3.6
-- AppleScript
 
 library:
   source-dirs: src
