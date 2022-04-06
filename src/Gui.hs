@@ -71,6 +71,8 @@ guiDraw (State env commandState) = [ui]
       str "info ..."
     GUIState ->
       str "gui ..."
+    UpdateFoldersState clean ->
+      str "updating folders ..."
     ShowExportState ->
       str "show export ..."
 

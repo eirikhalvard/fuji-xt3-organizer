@@ -15,6 +15,7 @@ opts =
             <> command "createAndTransfer" (info createAndTransferParser (progDesc "Create a folder on the SSD and transfer the files from the SD card"))
             <> command "info" (info informationParser (progDesc "Displays information"))
             <> command "gui" (info guiParser (progDesc "Launch the graphical user interface"))
+            <> command "update" (info updateParser (progDesc "Updates photos export folders"))
             <> command "export" (info exportParser (progDesc "Show the export folder"))
         )
         <**> helper
@@ -41,6 +42,16 @@ createAndTransferParser =
 informationParser :: Parser Command
 informationParser =
   pure Info
+
+updateParser :: Parser Command
+updateParser =
+  UpdateFolders <$> clean
+ where
+  clean =
+    switch
+      ( long "clean"
+          <> help "Parse the entire export library instead of using the database"
+      )
 
 guiParser :: Parser Command
 guiParser = pure GUI

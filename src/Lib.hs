@@ -11,6 +11,9 @@ import qualified Control.Concurrent as Thread
 import Control.Monad.Extra (zipWithM_)
 import Data.Char (isSpace, toLower, toUpper)
 import Data.List.Extra (chunksOf, dropPrefix, splitOn)
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.Map.Merge.Strict
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as S
@@ -22,17 +25,20 @@ import System.Hclip (setClipboard)
 import System.PosixCompat.Files (getFileStatus)
 import System.Process.Extra (readProcess)
 
-getLoggedPhotos :: IO [(String, [String])]
+getLoggedPhotos :: IO (Map String (Set String))
 getLoggedPhotos = parseLoggedPhotos <$> readProcess "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/logphotos" [] ""
 
-parseLoggedPhotos :: String -> [(String, [String])]
-parseLoggedPhotos str = parsed
+parseLoggedPhotos :: String -> Map String (Set String)
+parseLoggedPhotos str = foldersToMap parsed
  where
   splitted = splitOn ";;;" <$> splitOnWithPrefix "|||" str
   parsed = fmap parseOneAlbum splitted
   parseOneAlbum [] = error "PARSE error from logging photos: no album name or files"
   parseOneAlbum (album : files) = (album, files)
   splitOnWithPrefix sep = splitOn sep . dropPrefix sep
+
+foldersToMap :: [(String, [String])] -> Map String (Set String)
+foldersToMap = Map.fromList . fmap (fmap S.fromList)
 
 create :: Env -> String -> IO ()
 create env name = do
@@ -57,10 +63,6 @@ showInfo env = do
   checkExistence (sdLib env)
   checkExistence (ssdLib env)
   checkExistence (exportLib env)
-  output <- getLoggedPhotos
-  mapM_ (\(album, files) -> putStr album <* print files) output
-  print output
-  print "hello"
  where
   checkExistence filepath = do
     fp <- canonicalizePath filepath
@@ -68,6 +70,52 @@ showInfo env = do
     if exists
       then print $ "Folder " ++ filepath ++ " exists"
       else print $ "Folder " ++ filepath ++ " does not exist"
+
+updateFolders :: Env -> Bool -> IO ()
+updateFolders env clean = do
+  loggedPhotos <- getLoggedPhotos
+  currentPhotos <-
+    if clean
+      then getPhotosFromFolder env
+      else getPhotosFromDb env
+  let diffResult = diffPhotos currentPhotos loggedPhotos
+  -- writeToDb loggedPhotos
+  putStrLn "work to do:"
+  updateFromDiff diffResult
+
+getPhotosFromFolder :: Env -> IO (Map String (Set String))
+getPhotosFromFolder env = fmap (S.map fst) <$> createExportMap env
+
+getPhotosFromDb :: Env -> IO (Map String (Set String))
+getPhotosFromDb env = undefined
+
+writeToDb :: Map String (Set String) -> IO ()
+writeToDb = undefined
+
+updateFromDiff :: Map String (Set String, Set String) -> IO ()
+updateFromDiff =
+  mapM_
+    ( \(name, (toRem, toAdd)) -> do
+        putStrLn $ name ++ ": "
+        putStrLn $ "to remove: " ++ show toRem
+        putStrLn $ "to add: " ++ show toAdd
+        putStrLn ""
+    )
+    . Map.toList
+
+diffPhotos ::
+  Map String (Set String) ->
+  Map String (Set String) ->
+  Map String (Set String, Set String)
+diffPhotos =
+  merge
+    (mapMissing (\k inCurrent -> (S.empty, S.empty))) -- dont remove old folders
+    (mapMissing (\k inLogged -> (S.empty, inLogged))) -- nothing to remove, add all
+    ( zipWithMatched
+        ( \k inCurrent inLogged ->
+            (S.difference inCurrent inLogged, S.difference inLogged inCurrent)
+        )
+    )
 
 gui :: Env -> IO ()
 gui env = return ()
@@ -77,7 +125,7 @@ showExport env = do
   exportInfo <- createExportMap env
   showExportMap exportInfo
 
-showExportMap :: [(String, Set (String, Integer))] -> IO ()
+showExportMap :: Map String (Set (String, Integer)) -> IO ()
 showExportMap =
   mapM_
     ( \(name, info) ->
@@ -88,6 +136,7 @@ showExportMap =
             ++ " number of items, total bytes: "
             ++ showNumBytes (sum (S.map snd info))
     )
+    . Map.toList
 
 showNumBytes :: Integer -> String
 showNumBytes n = prefix ++ getPostfix (length rest `div` 3)
@@ -103,13 +152,13 @@ showNumBytes n = prefix ++ getPostfix (length rest `div` 3)
   getPostfix 4 = "T"
   getPostfix _ = error "get fucked"
 
-createExportMap :: Env -> IO [(String, Set (String, Integer))]
+createExportMap :: Env -> IO (Map String (Set (String, Integer)))
 createExportMap env = do
   setCurrentDirectory (exportLib env)
   let excludeFolders = [".DS_Store", "iPod Photo Cache", "Gifs"]
   folders <- System.Directory.listDirectory "."
   let relevantFolders = filter (`notElem` excludeFolders) folders
-  mapM getFolderEntry relevantFolders
+  Map.fromList <$> mapM getFolderEntry relevantFolders
 
 getFolderEntry :: FilePath -> IO (String, Set (String, Integer))
 getFolderEntry filepath = do
@@ -260,6 +309,7 @@ getName (Transfer _) = Nothing
 getName (CreateAndTransfer name _) = Just name
 getName Info = Nothing
 getName GUI = Nothing
+getName (UpdateFolders clean) = Nothing
 getName ShowExport = Nothing
 
 event :: Env -> ApplicationEvent -> IO ()
@@ -278,6 +328,8 @@ runCommand command env =
       showInfo env
     GUI -> runWithGui GUIState $ do
       gui env
+    UpdateFolders clean -> runWithGui (UpdateFoldersState clean) $ do
+      updateFolders env clean
     ShowExport -> runWithGui ShowExportState $ do
       showExport env
  where

@@ -8,6 +8,7 @@ data Command
   | CreateAndTransfer String Transfer
   | Info
   | GUI
+  | UpdateFolders Bool
   | ShowExport
   deriving (Show, Eq)
 
@@ -40,6 +41,7 @@ data CommandState
   | CreateAndTransferState String Transfer Float
   | InfoState
   | GUIState
+  | UpdateFoldersState Bool
   | ShowExportState
 
 data ApplicationEvent
