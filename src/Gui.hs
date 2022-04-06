@@ -56,7 +56,7 @@ app =
     }
 
 guiDraw :: AppState -> [T.Widget String]
-guiDraw (State env commandState) = [ui]
+guiDraw (State env commandState _) = [ui]
  where
   ui = case commandState of
     CreateState name ->
@@ -97,14 +97,17 @@ guiChooseCursor = const . const Nothing
 guiHandleEvent :: AppState -> T.BrickEvent String ApplicationEvent -> T.EventM String (T.Next AppState)
 guiHandleEvent appState (T.AppEvent (TransferProgress n)) =
   M.continue $ updateProgress appState (valid n)
-guiHandleEvent appState (T.AppEvent Finished) = M.halt appState
+guiHandleEvent (State env cmdState _) (T.AppEvent Finished) = 
+  M.continue (State env cmdState IsQuitable)
+guiHandleEvent appState (T.AppEvent Exit) = M.halt appState
+guiHandleEvent appState@(State _ _ IsQuitable) (T.VtyEvent (V.EvKey (V.KChar 'q') [])) = M.halt appState
 guiHandleEvent appState _ = M.continue appState
 
 updateProgress :: AppState -> Float -> AppState
-updateProgress (State env (TransferState transfer _)) newNum =
-  State env (TransferState transfer newNum)
-updateProgress (State env (CreateAndTransferState name transfer _)) newNum =
-  State env (CreateAndTransferState name transfer newNum)
+updateProgress (State env (TransferState transfer _) q) newNum =
+  State env (TransferState transfer newNum) q
+updateProgress (State env (CreateAndTransferState name transfer _) q) newNum =
+  State env (CreateAndTransferState name transfer newNum) q
 updateProgress other _ = other
 
 doneAttr, todoAttr :: A.AttrName

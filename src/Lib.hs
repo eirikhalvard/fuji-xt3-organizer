@@ -318,23 +318,23 @@ event env = BC.writeBChan (eventChan env)
 runCommand :: Command -> Env -> IO ()
 runCommand command env =
   case command of
-    Create name -> runWithGui (CreateState name) $ do
+    Create name -> runWithGui (CreateState name) IsRunning $ do
       create env name
-    Transfer transf -> runWithGui (TransferState transf 0.0) $ do
+    Transfer transf -> runWithGui (TransferState transf 0.0) IsRunning $ do
       transfer env "" transf
-    CreateAndTransfer name transf -> runWithGui (CreateAndTransferState name transf 0.0) $ do
+    CreateAndTransfer name transf -> runWithGui (CreateAndTransferState name transf 0.0) IsRunning $ do
       createAndTransfer env name transf
-    Info -> runWithGui InfoState $ do
+    Info -> runWithGui InfoState IsQuitable $ do
       showInfo env
-    GUI -> runWithGui GUIState $ do
+    GUI -> runWithGui GUIState IsQuitable $ do
       gui env
-    UpdateFolders clean -> runWithGui (UpdateFoldersState clean) $ do
+    UpdateFolders clean -> runWithGui (UpdateFoldersState clean) IsRunning $ do
       updateFolders env clean
-    ShowExport -> runWithGui ShowExportState $ do
+    ShowExport -> runWithGui ShowExportState IsRunning $ do
       showExport env
  where
-  runWithGui cmdState program =
+  runWithGui cmdState quitable program =
     runGui
       (eventChan env)
-      (State env cmdState)
-      (program <* threadDelay 6000000 <* event env Finished)
+      (State env cmdState quitable)
+      (program <* event env Finished)
