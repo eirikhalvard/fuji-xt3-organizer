@@ -4,16 +4,13 @@ import qualified Graphics.Vty as V
 
 import qualified Brick.AttrMap as A
 import qualified Brick.BChan as BC
+import Brick.Main
 import qualified Brick.Main as M
 import qualified Brick.Types as T
 import Brick.Util (bg, clamp, fg, on)
-import Brick.Widgets.Core (
-  overrideAttr,
-  str,
-  updateAttrMap,
-  (<+>),
-  (<=>),
- )
+import Brick.Widgets.Border
+import Brick.Widgets.Center
+import Brick.Widgets.Core
 import qualified Brick.Widgets.ProgressBar as P
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -55,8 +52,10 @@ app =
     , M.appAttrMap = guiAttrMap
     }
 
+data Name = ViewportScroller deriving (Eq, Show)
+
 guiDraw :: AppState -> [T.Widget String]
-guiDraw (State env commandState _) = [ui]
+guiDraw (State env commandState _ logList) = [ui]
  where
   ui = case commandState of
     CreateState name ->
@@ -67,14 +66,28 @@ guiDraw (State env commandState _) = [ui]
     CreateAndTransferState name transfer num ->
       str "create and transfer ..."
         <=> progressWidget "Transfer progress: " num
+        <=> scrollerWidget logList
     InfoState ->
       str "info ..."
+        <=> scrollerWidget logList
     GUIState ->
-      str "gui ..."
+      let header = str "header"
+          footer = str "footer"
+          left = vBox [header, str "Left", footer]
+          scroller = scrollerWidget (fmap show logList)
+          gui = (center left <+> vBorder <+> scroller)
+       in gui
     UpdateFoldersState clean ->
       str "updating folders ..."
     ShowExportState ->
       str "show export ..."
+
+scrollerWidget :: LogList -> T.Widget String
+scrollerWidget logList =
+  let content = vBox (str <$> logList)
+      scroller = vLimitPercent 50 $ viewport "ViewportScroller" T.Vertical content
+      withBars = withVScrollBars T.OnRight scroller
+   in withBars
 
 progressWidget :: String -> Float -> T.Widget String
 progressWidget progressName progress = ui
@@ -97,18 +110,42 @@ guiChooseCursor = const . const Nothing
 guiHandleEvent :: AppState -> T.BrickEvent String ApplicationEvent -> T.EventM String (T.Next AppState)
 guiHandleEvent appState (T.AppEvent (TransferProgress n)) =
   M.continue $ updateProgress appState (valid n)
-guiHandleEvent (State env cmdState _) (T.AppEvent Finished) = 
-  M.continue (State env cmdState IsQuitable)
+guiHandleEvent appState (T.AppEvent (AppendLogList entry)) =
+  M.continue $ appendToLogList appState entry
+guiHandleEvent (State env cmdState _ logList) (T.AppEvent Finished) =
+  M.continue (State env cmdState IsQuitable logList)
 guiHandleEvent appState (T.AppEvent Exit) = M.halt appState
-guiHandleEvent appState@(State _ _ IsQuitable) (T.VtyEvent (V.EvKey (V.KChar 'q') [])) = M.halt appState
+guiHandleEvent appState (T.VtyEvent (V.EvKey k [])) = handleKeyPress appState k
 guiHandleEvent appState _ = M.continue appState
 
+handleKeyPress :: AppState -> V.Key -> T.EventM String (T.Next AppState)
+handleKeyPress appState (V.KChar k) =
+  case k of
+    'q' -> maybeQuit appState
+    'j' -> scrollWith (`vScrollBy` 1)
+    'k' -> scrollWith (`vScrollBy` (-1))
+    'd' -> scrollWith (`vScrollPage` T.Down)
+    'u' -> scrollWith (`vScrollPage` T.Up)
+    'G' -> scrollWith vScrollToEnd
+    'g' -> scrollWith vScrollToBeginning
+    _ -> continue appState
+ where
+  scrollWith scroller =
+    scroller (viewportScroll "ViewportScroller") >> continue appState
+  maybeQuit (State _ _ IsQuitable _) = M.halt appState
+  maybeQuit _ = M.continue appState
+handleKeyPress appState _ = M.continue appState
+
 updateProgress :: AppState -> Float -> AppState
-updateProgress (State env (TransferState transfer _) q) newNum =
-  State env (TransferState transfer newNum) q
-updateProgress (State env (CreateAndTransferState name transfer _) q) newNum =
-  State env (CreateAndTransferState name transfer newNum) q
+updateProgress (State env (TransferState transfer _) q logList) newNum =
+  State env (TransferState transfer newNum) q logList
+updateProgress (State env (CreateAndTransferState name transfer _) q logList) newNum =
+  State env (CreateAndTransferState name transfer newNum) q logList
 updateProgress other _ = other
+
+appendToLogList :: AppState -> String -> AppState
+appendToLogList (State env cmdState q logList) entry =
+  State env cmdState q (entry : logList)
 
 doneAttr, todoAttr :: A.AttrName
 doneAttr = theBaseAttr <> A.attrName "X:done"

@@ -68,8 +68,8 @@ showInfo env = do
     fp <- canonicalizePath filepath
     exists <- doesDirectoryExist fp
     if exists
-      then print $ "Folder " ++ filepath ++ " exists"
-      else print $ "Folder " ++ filepath ++ " does not exist"
+      then event env . AppendLogList $ "Folder " ++ filepath ++ " exists"
+      else event env . AppendLogList $ "Folder " ++ filepath ++ " does not exist"
 
 updateFolders :: Env -> Bool -> IO ()
 updateFolders env clean = do
@@ -78,10 +78,12 @@ updateFolders env clean = do
     if clean
       then getPhotosFromFolder env
       else getPhotosFromDb env
+  event env . AppendLogList $ "diffing"
   let diffResult = diffPhotos currentPhotos loggedPhotos
+  event env . AppendLogList $ "diffed"
   -- writeToDb loggedPhotos
-  putStrLn "work to do:"
-  updateFromDiff diffResult
+  event env . AppendLogList $ "work to do:"
+  -- updateFromDiff diffResult
 
 getPhotosFromFolder :: Env -> IO (Map String (Set String))
 getPhotosFromFolder env = fmap (S.map fst) <$> createExportMap env
@@ -223,9 +225,9 @@ transferSingle env path progress filename = do
       originAbsolute = path ++ "/" ++ filename
   exists <- doesPathExist destinationAbsolute
   if exists
-    then print ("SKIPPING EXISTING FILE (" ++ filename ++ ")")
+    then event env $ AppendLogList ("SKIPPING EXISTING FILE (" ++ filename ++ ")")
     else
-      print ("COPYING FILE " ++ filename)
+      event env (AppendLogList ("COPYING FILE " ++ filename))
         >> copyFileWithMetadata originAbsolute destinationAbsolute
         >> removeFile originAbsolute
         >> event env (TransferProgress progress)
@@ -336,5 +338,5 @@ runCommand command env =
   runWithGui cmdState quitable program =
     runGui
       (eventChan env)
-      (State env cmdState quitable)
+      (State env cmdState quitable [])
       (program <* event env Finished)

@@ -33,9 +33,11 @@ data Env = Env
 
 data Extension = Jpg String | Raw String | Export String | Movie String
 
-data AppState = State Env CommandState Quitable
+data AppState = State Env CommandState Quitable LogList
 
 data Quitable = IsQuitable | IsRunning
+
+type LogList = [String]
 
 data CommandState
   = CreateState String
@@ -48,5 +50,6 @@ data CommandState
 
 data ApplicationEvent
   = TransferProgress Float
+  | AppendLogList String
   | Finished
   | Exit
