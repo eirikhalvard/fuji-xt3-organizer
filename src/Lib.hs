@@ -73,13 +73,10 @@ showInfo env = do
       then logEvent env $ "Folder " ++ filepath ++ " exists"
       else logEvent env $ "Folder " ++ filepath ++ " does not exist"
 
-updateFolders :: Env -> Bool -> IO ()
-updateFolders env clean = do
+updateFolders :: Env -> IO ()
+updateFolders env = do
   loggedPhotos <- getLoggedPhotos
-  currentPhotos <-
-    if clean
-      then getPhotosFromFolder env
-      else getPhotosFromDb env
+  currentPhotos <- getPhotosFromFolder env
   logEvent env "diffing"
   let diffResult = diffPhotos currentPhotos loggedPhotos
   logEvent env "diffed"
@@ -235,19 +232,28 @@ createStructure env = do
   createOrCrash (Just path) = createDirectory path
 
 transferPhotos :: Env -> Transfer -> IO ()
-transferPhotos env AllTransfer = do
+transferPhotos env transfer = do
   dirs <- getSDDirectories env
-  mapM_ (transferBatch env) dirs
-transferPhotos env (RangeTransfer from to) = do
-  putStrLn "not yet implemented"
+  mapM_ (transferBatch env transfer) dirs
 
-transferBatch :: Env -> FilePath -> IO ()
-transferBatch env path = do
-  filenames <- listDirectory path
+transferBatch :: Env -> Transfer -> FilePath -> IO ()
+transferBatch env transfer path = do
+  filenames <- fetchFilenames
   zipWithM_
     (transferSingle env path)
     [fromIntegral n / fromIntegral (length filenames) | n <- [1 ..]]
     filenames
+ where
+  fetchFilenames =
+    case transfer of
+      AllTransfer ->
+        listDirectory path
+      (RangeTransfer from to) ->
+        filter (isBetweenRange from to . takeBaseName) <$> listDirectory path
+  isBetweenRange from to filename =
+    let count :: Int
+        count = read $ filter isDigit filename
+     in from <= count && count <= to
 
 transferSingle :: Env -> FilePath -> Float -> String -> IO ()
 transferSingle env path progress filename = do
@@ -350,7 +356,7 @@ getName (Transfer _) = Nothing
 getName (CreateAndTransfer name _) = Just name
 getName Info = Nothing
 getName GUI = Nothing
-getName (UpdateFolders clean) = Nothing
+getName UpdateFolders = Nothing
 getName ShowExport = Nothing
 
 event :: Env -> ApplicationEvent -> IO ()
@@ -372,8 +378,8 @@ runCommand command env =
       showInfo env
     GUI -> runWithGui GUIState IsQuitable $ do
       gui env
-    UpdateFolders clean -> runWithGui (UpdateFoldersState clean) IsRunning $ do
-      updateFolders env clean
+    UpdateFolders -> runWithGui UpdateFoldersState IsRunning $ do
+      updateFolders env
     ShowExport -> runWithGui ShowExportState IsRunning $ do
       showExport env
  where

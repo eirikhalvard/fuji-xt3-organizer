@@ -77,7 +77,7 @@ guiDraw (State env commandState _ logList) = [ui]
           scroller = scrollerWidget (fmap show logList)
           gui = (center left <+> vBorder <+> scroller)
        in gui
-    UpdateFoldersState clean ->
+    UpdateFoldersState ->
       str "updating folders ..."
     ShowExportState ->
       str "show export ..."

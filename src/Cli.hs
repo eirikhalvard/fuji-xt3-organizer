@@ -45,13 +45,7 @@ informationParser =
 
 updateParser :: Parser Command
 updateParser =
-  UpdateFolders <$> clean
- where
-  clean =
-    switch
-      ( long "clean"
-          <> help "Parse the entire export library instead of using the database"
-      )
+  pure UpdateFolders
 
 guiParser :: Parser Command
 guiParser = pure GUI
