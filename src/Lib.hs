@@ -8,8 +8,10 @@ import qualified Brick.BChan as BC
 import qualified Brick.Main as M
 import Control.Concurrent (threadDelay)
 import qualified Control.Concurrent as Thread
-import Control.Monad.Extra (zipWithM_)
-import Data.Char (isSpace, toLower, toUpper)
+import Control.Monad.Extra (filterM, zipWithM_)
+import Data.Char (isDigit, isSpace, toLower, toUpper)
+import Data.Either (partitionEithers)
+import Data.List (isPrefixOf, sort)
 import Data.List.Extra (chunksOf, dropPrefix, splitOn)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -68,8 +70,8 @@ showInfo env = do
     fp <- canonicalizePath filepath
     exists <- doesDirectoryExist fp
     if exists
-      then event env . AppendLogList $ "Folder " ++ filepath ++ " exists"
-      else event env . AppendLogList $ "Folder " ++ filepath ++ " does not exist"
+      then logEvent env $ "Folder " ++ filepath ++ " exists"
+      else logEvent env $ "Folder " ++ filepath ++ " does not exist"
 
 updateFolders :: Env -> Bool -> IO ()
 updateFolders env clean = do
@@ -78,12 +80,11 @@ updateFolders env clean = do
     if clean
       then getPhotosFromFolder env
       else getPhotosFromDb env
-  event env . AppendLogList $ "diffing"
+  logEvent env "diffing"
   let diffResult = diffPhotos currentPhotos loggedPhotos
-  event env . AppendLogList $ "diffed"
-  -- writeToDb loggedPhotos
-  event env . AppendLogList $ "work to do:"
-  -- updateFromDiff diffResult
+  logEvent env "diffed"
+  logEvent env "work to do:"
+  updateFromDiff env diffResult
 
 getPhotosFromFolder :: Env -> IO (Map String (Set String))
 getPhotosFromFolder env = fmap (S.map fst) <$> createExportMap env
@@ -94,17 +95,50 @@ getPhotosFromDb env = undefined
 writeToDb :: Map String (Set String) -> IO ()
 writeToDb = undefined
 
-updateFromDiff :: Map String (Set String, Set String) -> IO ()
-updateFromDiff =
+updateFromDiff :: Env -> Map String (Set String, Set String) -> IO ()
+updateFromDiff env diffResult = do
+  logEvent env "updating ........"
   mapM_
-    ( \(name, (toRem, toAdd)) -> do
-        putStrLn $ name ++ ": "
-        putStrLn $ "to remove: " ++ show toRem
-        putStrLn $ "to add: " ++ show toAdd
-        putStrLn ""
+    ( \(name, (toRemove, toAdd)) -> do
+        let toFolder = exportLib env ++ name
+            removeFilePaths = (\filename -> toFolder ++ "/" ++ filename) <$> S.toList toRemove
+        createDirectoryIfMissing False toFolder
+        mapM_ (addToFolder env toFolder) $ S.toList toAdd
     )
-    . Map.toList
+    $ Map.toList diffResult
 
+addToFolder :: Env -> FilePath -> String -> IO ()
+addToFolder env toFolder filename =
+  case filename of
+    (y1 : y2 : m1 : m2 : d1 : d2 : '_' : rest) | all isDigit [y1, y2, m1, m2, d1, d2] -> do
+      let year = "20" ++ [y1, y2]
+          month = [m1, m2]
+          day = [d1, d2]
+          ssdBaseDir = ssdBaseLib env ++ year ++ "/"
+          folderPrefix = concat [year, "-", month, "-", day]
+      withCurrentDirectory ssdBaseDir $ do
+        folders <- System.Directory.listDirectory "."
+        let relevantFolders = filter (isPrefixOf folderPrefix) folders
+            potentialFiles =
+              concatMap
+                ( \f ->
+                    [ f ++ "/" ++ jpgFolderName env ++ "/" ++ filename
+                    , f ++ "/" ++ exportFolderName env ++ "/" ++ filename
+                    ]
+                )
+                relevantFolders
+        matchingFiles <- filterM doesFileExist potentialFiles
+        case matchingFiles of
+          [fromPath] -> do
+            let toPath = toFolder ++ "/" ++ filename
+            putStrLn $ "COPYING " ++ fromPath ++ " to " ++ toPath
+            copyFile fromPath toPath
+          [] -> putStrLn ("No matching folder for " ++ filename)
+          xs -> putStrLn ("Several matches for file " ++ unwords xs)
+    _ -> return () -- putStrLn ("File not matching pattern yymmdd " ++ filename)
+
+-- returns map from name to tuple (toRemove, toAdd), where toRemove is titles to remove
+-- and toAdd, is titles to add.
 diffPhotos ::
   Map String (Set String) ->
   Map String (Set String) ->
@@ -115,7 +149,9 @@ diffPhotos =
     (mapMissing (\k inLogged -> (S.empty, inLogged))) -- nothing to remove, add all
     ( zipWithMatched
         ( \k inCurrent inLogged ->
-            (S.difference inCurrent inLogged, S.difference inLogged inCurrent)
+            let toRemove = S.difference inCurrent inLogged
+                toAdd = S.difference inLogged inCurrent
+             in (toRemove, toAdd)
         )
     )
 
@@ -157,7 +193,7 @@ showNumBytes n = prefix ++ getPostfix (length rest `div` 3)
 createExportMap :: Env -> IO (Map String (Set (String, Integer)))
 createExportMap env = do
   setCurrentDirectory (exportLib env)
-  let excludeFolders = [".DS_Store", "iPod Photo Cache", "Gifs"]
+  let excludeFolders = [".DS_Store", "iPod Photo Cache"]
   folders <- System.Directory.listDirectory "."
   let relevantFolders = filter (`notElem` excludeFolders) folders
   Map.fromList <$> mapM getFolderEntry relevantFolders
@@ -171,14 +207,16 @@ getFolderEntry filepath = do
 getFolderInfo :: FilePath -> IO (Set (String, Integer))
 getFolderInfo filepath = do
   entries <- listDirectory "."
-  information <- mapM getFileInfo entries
+  let excludeEntries = [".DS_Store"]
+      filteredEntries = filter (`notElem` excludeEntries) entries
+  information <- mapM getFileInfo filteredEntries
   return $ S.fromList information
 
 getFileInfo :: FilePath -> IO (String, Integer)
 getFileInfo filepath = do
   size <- getFileSize filepath
-  let baseName = takeBaseName filepath
-  return (baseName, size)
+  -- let baseName = takeBaseName filepath
+  return (filepath, size)
 
 setOrCreateDirectory :: Env -> IO ()
 setOrCreateDirectory env = do
@@ -225,9 +263,9 @@ transferSingle env path progress filename = do
       originAbsolute = path ++ "/" ++ filename
   exists <- doesPathExist destinationAbsolute
   if exists
-    then event env $ AppendLogList ("SKIPPING EXISTING FILE (" ++ filename ++ ")")
+    then logEvent env ("SKIPPING EXISTING FILE (" ++ filename ++ ")")
     else
-      event env (AppendLogList ("COPYING FILE " ++ filename))
+      logEvent env ("COPYING FILE " ++ filename)
         >> copyFileWithMetadata originAbsolute destinationAbsolute
         >> removeFile originAbsolute
         >> event env (TransferProgress progress)
@@ -294,6 +332,7 @@ getEnv mName chan = do
     Env
       { sdLib = "/Volumes/Untitled/DCIM/"
       , ssdLib = "/Volumes/EirikT5/Pictures/Fuji/" ++ year ++ "/"
+      , ssdBaseLib = "/Volumes/EirikT5/Pictures/Fuji/"
       , exportLib = homeDirectory ++ "/Pictures/Export/"
       , jpgFolderName = "01_JPG"
       , rawFolderName = "02_RAW"
@@ -316,6 +355,9 @@ getName ShowExport = Nothing
 
 event :: Env -> ApplicationEvent -> IO ()
 event env = BC.writeBChan (eventChan env)
+
+logEvent :: Env -> String -> IO ()
+logEvent env = event env . AppendLogList
 
 runCommand :: Command -> Env -> IO ()
 runCommand command env =

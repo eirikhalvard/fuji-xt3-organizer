@@ -20,6 +20,7 @@ data Transfer
 data Env = Env
   { sdLib :: FilePath
   , ssdLib :: FilePath
+  , ssdBaseLib :: FilePath
   , exportLib :: FilePath
   , jpgFolderName :: String
   , rawFolderName :: String
