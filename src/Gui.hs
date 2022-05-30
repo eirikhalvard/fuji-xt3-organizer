@@ -55,32 +55,44 @@ app =
 data Name = ViewportScroller deriving (Eq, Show)
 
 guiDraw :: AppState -> [T.Widget String]
-guiDraw (State env commandState _ logList) = [ui]
+guiDraw (State env commandState quitable logList) = [ui]
  where
-  ui = case commandState of
-    CreateState name ->
-      str "create ..."
-    TransferState transfer num ->
-      str "transfer ..."
-        <=> progressWidget "Transfer progress: " num
-    CreateAndTransferState name transfer num ->
-      str "create and transfer ..."
-        <=> progressWidget "Transfer progress: " num
-        <=> scrollerWidget logList
-    InfoState ->
-      str "info ..."
-        <=> scrollerWidget logList
-    GUIState ->
-      let header = str "header"
-          footer = str "footer"
-          left = vBox [header, str "Left", footer]
-          scroller = scrollerWidget (fmap show logList)
-          gui = (center left <+> vBorder <+> scroller)
-       in gui
-    UpdateFoldersState ->
-      str "updating folders ..."
-    ShowExportState ->
-      str "show export ..."
+  ui =
+    drawHeader commandState
+      <=> drawMain commandState
+      <=> scrollerWidget logList
+      <=> drawFooter commandState
+      <=> quitableWidget quitable
+
+-- left = vBox [header, str "Left", footer]
+-- gui = (center left <+> vBorder <+> scroller)
+
+drawHeader (CreateState name) = str "Creating folders"
+drawHeader (TransferState transfer num) = str "Transfering files to folder"
+drawHeader (CreateAndTransferState name transfer num) = str "Creating folder and transfering files"
+drawHeader InfoState = str "Showing info"
+drawHeader GUIState = str "Gui test"
+drawHeader UpdateFoldersState = str "Updating export folders"
+drawHeader ShowExportState = str "Showing export folder state"
+
+drawMain (CreateState name) = str "Create"
+drawMain (TransferState transfer num) = progressWidget "Transfer progress: " num
+drawMain (CreateAndTransferState name transfer num) = progressWidget "Transfer progress: " num
+drawMain InfoState = str "info ..."
+drawMain GUIState = str "gui"
+drawMain UpdateFoldersState = str "updating folders ..."
+drawMain ShowExportState = str "show export ..."
+
+drawFooter (CreateState name) = str ""
+drawFooter (TransferState transfer num) = str ""
+drawFooter (CreateAndTransferState name transfer num) = str ""
+drawFooter InfoState = str ""
+drawFooter GUIState = str ""
+drawFooter UpdateFoldersState = str ""
+drawFooter ShowExportState = str ""
+
+quitableWidget IsQuitable = str "Program is finished! Press 'q' to exit"
+quitableWidget IsRunning = str "Program is currently running"
 
 scrollerWidget :: LogList -> T.Widget String
 scrollerWidget logList =
