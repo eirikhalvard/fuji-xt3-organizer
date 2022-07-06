@@ -105,34 +105,43 @@ updateFromDiff env diffResult = do
     $ Map.toList diffResult
 
 addToFolder :: Env -> FilePath -> String -> IO ()
-addToFolder env toFolder filename =
-  case filename of
-    (y1 : y2 : m1 : m2 : d1 : d2 : '_' : rest) | all isDigit [y1, y2, m1, m2, d1, d2] -> do
-      let year = "20" ++ [y1, y2]
-          month = [m1, m2]
-          day = [d1, d2]
-          ssdBaseDir = ssdBaseLib env ++ year ++ "/"
-          folderPrefix = concat [year, "-", month, "-", day]
-      withCurrentDirectory ssdBaseDir $ do
-        folders <- System.Directory.listDirectory "."
-        let relevantFolders = filter (isPrefixOf folderPrefix) folders
-            potentialFiles =
-              concatMap
-                ( \f ->
-                    [ f ++ "/" ++ jpgFolderName env ++ "/" ++ filename
-                    , f ++ "/" ++ exportFolderName env ++ "/" ++ filename
-                    ]
-                )
-                relevantFolders
-        matchingFiles <- filterM doesFileExist potentialFiles
-        case matchingFiles of
-          [fromPath] -> do
-            let toPath = toFolder ++ "/" ++ filename
-            putStrLn $ "COPYING " ++ fromPath ++ " to " ++ toPath
-            copyFile fromPath toPath
-          [] -> putStrLn ("No matching folder for " ++ filename)
-          xs -> putStrLn ("Several matches for file " ++ unwords xs)
-    _ -> return () -- putStrLn ("File not matching pattern yymmdd " ++ filename)
+addToFolder env toFolder filename = do
+  matching <- matchingFiles
+  case matching of
+    [fromPath] -> do
+      let toPath = toFolder ++ "/" ++ filename
+      logEvent env $ "COPYING " ++ filename ++ " to " ++ toFolder
+      copyFile fromPath toPath
+    [] -> logEvent env ("No matching folder for " ++ filename)
+    xs -> logEvent env ("Several matches for file " ++ unwords xs)
+ where
+  relevantFolders :: IO [FilePath]
+  relevantFolders =
+    case filename of
+      (y1 : y2 : m1 : m2 : d1 : d2 : '_' : rest) | all isDigit [y1, y2, m1, m2, d1, d2] -> do
+        let year = "20" ++ [y1, y2]
+            month = [m1, m2]
+            day = [d1, d2]
+            ssdBaseDir = ssdBaseLib env ++ year ++ "/"
+            folderPrefix = concat [year, "-", month, "-", day]
+        withCurrentDirectory ssdBaseDir $ do
+          folders <- System.Directory.listDirectory "."
+          let relevant = filter (isPrefixOf folderPrefix) folders
+          let fullPath = (ssdBaseDir ++) <$> relevant
+          return fullPath
+      _ -> do
+        return [] -- todo (check both years 2021 and 2022)
+  potentialFiles :: IO [FilePath]
+  potentialFiles =
+    concatMap
+      ( \f ->
+          [ f ++ "/" ++ jpgFolderName env ++ "/" ++ filename
+          , f ++ "/" ++ exportFolderName env ++ "/" ++ filename
+          ]
+      )
+      <$> relevantFolders
+  matchingFiles :: IO [FilePath]
+  matchingFiles = potentialFiles >>= filterM doesFileExist
 
 -- returns map from name to tuple (toRemove, toAdd), where toRemove is titles to remove
 -- and toAdd, is titles to add.
