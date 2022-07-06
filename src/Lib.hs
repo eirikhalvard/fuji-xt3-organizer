@@ -8,7 +8,7 @@ import qualified Brick.BChan as BC
 import qualified Brick.Main as M
 import Control.Concurrent (threadDelay)
 import qualified Control.Concurrent as Thread
-import Control.Monad.Extra (filterM, zipWithM_)
+import Control.Monad.Extra (concatMapM, filterM, zipWithM_)
 import Data.Char (isDigit, isSpace, toLower, toUpper)
 import Data.Either (partitionEithers)
 import Data.List (isPrefixOf, sort)
@@ -119,6 +119,7 @@ addToFolder env toFolder filename = do
   relevantFolders =
     case filename of
       (y1 : y2 : m1 : m2 : d1 : d2 : '_' : rest) | all isDigit [y1, y2, m1, m2, d1, d2] -> do
+      -- filename: "yymmdd - some name"
         let year = "20" ++ [y1, y2]
             month = [m1, m2]
             day = [d1, d2]
@@ -129,8 +130,14 @@ addToFolder env toFolder filename = do
           let relevant = filter (isPrefixOf folderPrefix) folders
           let fullPath = (ssdBaseDir ++) <$> relevant
           return fullPath
-      _ -> do
-        return [] -- todo (check both years 2021 and 2022)
+      _ ->
+      -- filename: legacy filename
+        concatMapM
+          ( \year ->
+              let ssdBaseDir = ssdBaseLib env ++ year ++ "/"
+               in fmap (ssdBaseDir ++) <$> System.Directory.listDirectory ssdBaseDir
+          )
+          ["2021", "2022"]
   potentialFiles :: IO [FilePath]
   potentialFiles =
     concatMap
