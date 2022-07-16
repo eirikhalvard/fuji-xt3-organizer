@@ -113,13 +113,25 @@ addToFolder env toFolder filename = do
       logEvent env $ "COPYING " ++ filename ++ " to " ++ toFolder
       copyFile fromPath toPath
     [] -> logEvent env ("No matching folder for " ++ filename)
-    xs -> logEvent env ("Several matches for file " ++ unwords xs)
+    xs -> do
+      logEvent env ("Several matches for file " ++ filename ++ " to " ++ toFolder)
+      let tmp = toFolder ++ "/tmp"
+      createDirectoryIfMissing False tmp
+      mapM_
+        ( \(fromPath, i) -> do
+            let (base, extension) = span (/= '.') filename
+            let fn = base ++ "_" ++ show i ++ extension
+            let toPath = tmp ++ "/" ++ fn
+            logEvent env $ "COPYING " ++ fn ++ " to " ++ tmp
+            copyFile fromPath toPath
+        )
+        $ zip xs [1 ..]
  where
   relevantFolders :: IO [FilePath]
   relevantFolders =
     case filename of
       (y1 : y2 : m1 : m2 : d1 : d2 : '_' : rest) | all isDigit [y1, y2, m1, m2, d1, d2] -> do
-      -- filename: "yymmdd - some name"
+        -- filename: "yymmdd - some name"
         let year = "20" ++ [y1, y2]
             month = [m1, m2]
             day = [d1, d2]
@@ -131,7 +143,7 @@ addToFolder env toFolder filename = do
           let fullPath = (ssdBaseDir ++) <$> relevant
           return fullPath
       _ ->
-      -- filename: legacy filename
+        -- filename: legacy filename
         concatMapM
           ( \year ->
               let ssdBaseDir = ssdBaseLib env ++ year ++ "/"
@@ -169,7 +181,9 @@ diffPhotos =
     )
 
 gui :: Env -> IO ()
-gui env = return ()
+gui env = do
+  logEvent env "loooooooooooooooooooooooooooooooooooooooooooong loooooooooooooooooooooooooooooooooooooooooooongloooooooooooooooooooooooooooooooooooooooooooong  line !!!!!!!!!!!! this is some stuff"
+  return ()
 
 showExport :: Env -> IO ()
 showExport env = do
