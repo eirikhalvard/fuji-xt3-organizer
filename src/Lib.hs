@@ -57,8 +57,8 @@ createAndTransfer :: Env -> String -> Transfer -> IO ()
 createAndTransfer env name transf = do
   setOrCreateDirectory env
   createStructure env
-  transferPhotos env transf
   mapM_ setClipboard (folderName env)
+  transferPhotos env transf
 
 showInfo :: Env -> IO ()
 showInfo env = do
