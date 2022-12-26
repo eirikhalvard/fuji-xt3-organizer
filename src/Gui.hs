@@ -6,6 +6,7 @@ import qualified Brick.AttrMap as A
 import qualified Brick.BChan as BC
 import Brick.Main
 import qualified Brick.Main as M
+import Brick.Themes
 import qualified Brick.Types as T
 import Brick.Util (bg, clamp, fg, on)
 import Brick.Widgets.Border
@@ -14,6 +15,7 @@ import Brick.Widgets.Core
 import qualified Brick.Widgets.ProgressBar as P
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Graphics.Vty
 import Types
 
 runGui :: BC.BChan ApplicationEvent -> AppState -> IO () -> IO ()
@@ -34,14 +36,6 @@ runGui eventChan initialState program = do
 valid :: Float -> Float
 valid = clamp (0.0 :: Float) 1.0
 
-simulateTransfer :: BC.BChan ApplicationEvent -> Int -> IO ()
-simulateTransfer chan num = mapM_ transferOne [1 .. num]
- where
-  transferOne n = do
-    threadDelay 20000 -- wait 0.2 per transfer
-    let progress = TransferProgress (fromIntegral n / fromIntegral num)
-    BC.writeBChan chan progress
-
 app :: M.App AppState ApplicationEvent String
 app =
   M.App
@@ -55,41 +49,75 @@ app =
 data Name = ViewportScroller deriving (Eq, Show)
 
 guiDraw :: AppState -> [T.Widget String]
-guiDraw (State env commandState quitable logList) = [ui]
+guiDraw appState = [ui]
  where
+  (State env commandState quitable logList) = appState
   ui =
-    drawHeader commandState
-      <=> drawMain commandState
+    drawHeader appState
+      <=> hCenter (drawMain commandState)
       <=> scrollerWidget logList
-      <=> drawFooter commandState
-      <=> quitableWidget quitable
+      <=> hCenter (padBottom (T.Pad 1) (quitableWidget quitable))
 
--- left = vBox [header, str "Left", footer]
--- gui = (center left <+> vBorder <+> scroller)
+drawHeader :: AppState -> T.Widget String
+drawHeader (State env commandState quitable logList) =
+  let fields =  hBox [text, status]
+      text =
+        vBox
+          [ str "State: "
+          , str "SSD: "
+          , str "SD Card: "
+          , str "Export: "
+          ]
+      status =
+        vBox
+          [ case quitable of
+              IsQuitable -> statusStr Good "Program is finished ('q' to quit)"
+              IsRunning -> statusStr InProgress "Program is running"
+          , if True -- TODO fix real value
+              then statusStr Good "Connected"
+              else statusStr Bad "Not connected"
+          , if True -- TODO fix real value
+              then statusStr Good "Connected"
+              else statusStr Bad "Not connected"
+          , if False -- TODO fix real value
+              then statusStr Good "Exists"
+              else statusStr Bad "Does not exist"
+          ]
+      xt3 =
+        padLeftRight
+          1
+          ( vBox
+              [ str "██╗  ██╗  ████████╗██████╗ "
+              , str "╚██╗██╔╝  ╚══██╔══╝╚════██╗"
+              , str " ╚███╔╝█████╗██║    █████╔╝"
+              , str " ██╔██╗╚════╝██║    ╚═══██╗"
+              , str "██╔╝ ██╗     ██║   ██████╔╝"
+              , str "╚═╝  ╚═╝     ╚═╝   ╚═════╝ "
+              ]
+          )
+   in hBox
+        [ fields
+        , padLeft T.Max xt3
+        ]
 
-drawHeader (CreateState name) = str "Creating folders"
-drawHeader (TransferState transfer num) = str "Transfering files to folder"
-drawHeader (CreateAndTransferState name transfer num) = str "Creating folder and transfering files"
-drawHeader InfoState = str "Showing info"
-drawHeader GUIState = str "Gui test"
-drawHeader UpdateFoldersState = str "Updating export folders"
-drawHeader ShowExportState = str "Showing export folder state"
+data Status = Good | InProgress | Bad
 
-drawMain (CreateState name) = str "Create"
+statusStr :: Status -> String -> T.Widget String
+statusStr status flavorText =
+  let statusPart = case status of
+        Good -> withAttr goodAttr (str "[✓] ")
+        InProgress -> withAttr inProgressAttr (str "[~] ")
+        Bad -> withAttr badAttr (str "[x] ")
+      flavorPart = str flavorText
+   in statusPart <+> flavorPart
+
+drawMain (CreateState name) = str "Creating folders"
 drawMain (TransferState transfer num) = progressWidget "Transfer progress: " num
-drawMain (CreateAndTransferState name transfer num) = progressWidget "Transfer progress: " num
-drawMain InfoState = str "info ..."
-drawMain GUIState = str "gui"
-drawMain UpdateFoldersState = str "updating folders ..."
-drawMain ShowExportState = str "show export ..."
-
-drawFooter (CreateState name) = str ""
-drawFooter (TransferState transfer num) = str ""
-drawFooter (CreateAndTransferState name transfer num) = str ""
-drawFooter InfoState = str ""
-drawFooter GUIState = str ""
-drawFooter UpdateFoldersState = str ""
-drawFooter ShowExportState = str ""
+drawMain (CreateAndTransferState name transfer num) = progressWidget "Create and transfer progress: " num
+drawMain InfoState = str "Showing info"
+drawMain GUIState = str "GUI Test"
+drawMain UpdateFoldersState = str "Updating export folders"
+drawMain ShowExportState = str "Showing export folder state"
 
 quitableWidget IsQuitable = str "Program is finished! Press 'q' to exit"
 quitableWidget IsRunning = str "Program is currently running"
@@ -97,9 +125,10 @@ quitableWidget IsRunning = str "Program is currently running"
 scrollerWidget :: LogList -> T.Widget String
 scrollerWidget logList =
   let content = vBox (str <$> logList)
-      scroller = vLimitPercent 50 $ viewport "ViewportScroller" T.Vertical content
+      scroller = viewport "ViewportScroller" T.Vertical content
       withBars = withVScrollBars T.OnRight scroller
-   in withBars
+      withBorder = border withBars
+   in withBorder
 
 progressWidget :: String -> Float -> T.Widget String
 progressWidget progressName progress = ui
@@ -117,7 +146,7 @@ progressWidget progressName progress = ui
   ui = str progressName <+> transferBar
 
 guiChooseCursor :: AppState -> [T.CursorLocation String] -> Maybe (T.CursorLocation String)
-guiChooseCursor = const . const Nothing
+guiChooseCursor _ _ = Nothing
 
 guiHandleEvent :: AppState -> T.BrickEvent String ApplicationEvent -> T.EventM String (T.Next AppState)
 guiHandleEvent appState (T.AppEvent (TransferProgress n)) =
@@ -140,6 +169,8 @@ handleKeyPress appState (V.KChar k) =
     'u' -> scrollWith (`vScrollPage` T.Up)
     'G' -> scrollWith vScrollToEnd
     'g' -> scrollWith vScrollToBeginning
+    'l' -> scrollWith (`hScrollBy` 1)
+    'h' -> scrollWith (`hScrollBy` (-1))
     _ -> continue appState
  where
   scrollWith scroller =
@@ -163,6 +194,11 @@ doneAttr, todoAttr :: A.AttrName
 doneAttr = theBaseAttr <> A.attrName "X:done"
 todoAttr = theBaseAttr <> A.attrName "X:remaining"
 
+goodAttr = A.attrName "goodStatusText"
+inProgressAttr = A.attrName "inProgressStatusText"
+badAttr = A.attrName "badStatusText"
+boldAttr = A.attrName "bold"
+
 theBaseAttr :: A.AttrName
 theBaseAttr = A.attrName "theBase"
 
@@ -177,4 +213,7 @@ guiAttrMap appState =
     , (doneAttr, V.black `on` V.white)
     , (todoAttr, V.white `on` V.black)
     , (P.progressIncompleteAttr, fg V.yellow)
+    , (goodAttr, withStyle (fg V.green) bold)
+    , (inProgressAttr, withStyle (fg V.yellow) bold)
+    , (badAttr, withStyle (fg V.red) bold)
     ]

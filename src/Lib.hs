@@ -67,11 +67,16 @@ showInfo env = do
   checkExistence (exportLib env)
  where
   checkExistence filepath = do
-    fp <- canonicalizePath filepath
-    exists <- doesDirectoryExist fp
-    if exists
-      then logEvent env $ "Folder " ++ filepath ++ " exists"
-      else logEvent env $ "Folder " ++ filepath ++ " does not exist"
+    exists <- directoryExists filepath
+    let message =
+          if exists
+            then "Folder " ++ filepath ++ " exists"
+            else "Folder " ++ filepath ++ " does not exist"
+    logEvent env message
+
+directoryExists :: FilePath -> IO Bool
+directoryExists fp =
+  doesDirectoryExist =<< canonicalizePath fp
 
 updateFolders :: Env -> IO ()
 updateFolders env = do
@@ -85,12 +90,6 @@ updateFolders env = do
 
 getPhotosFromFolder :: Env -> IO (Map String (Set String))
 getPhotosFromFolder env = fmap (S.map fst) <$> createExportMap env
-
-getPhotosFromDb :: Env -> IO (Map String (Set String))
-getPhotosFromDb env = undefined
-
-writeToDb :: Map String (Set String) -> IO ()
-writeToDb = undefined
 
 updateFromDiff :: Env -> Map String (Set String, Set String) -> IO ()
 updateFromDiff env diffResult = do
@@ -182,8 +181,15 @@ diffPhotos =
 
 gui :: Env -> IO ()
 gui env = do
-  logEvent env "loooooooooooooooooooooooooooooooooooooooooooong loooooooooooooooooooooooooooooooooooooooooooongloooooooooooooooooooooooooooooooooooooooooooong  line !!!!!!!!!!!! this is some stuff"
-  return ()
+  mapM_ transferOne [1 .. num]
+  logEvent env "loooooooooooooooooooooooooooooooooooongloooooooooooooooooooooooooooooooooooongloooooooooooooooooooooooooooooooooooong   loooooooooooooooooooooooooooooooooooong eveeeeeeeeeeeeeeeent to test horizontal scrolling"
+ where
+  num = 40
+  transferOne n = do
+    threadDelay 40000 -- wait 0.4s per transfer
+    let progress = TransferProgress (fromIntegral n / fromIntegral num)
+    logEvent env $ "transfer test #" ++ show n
+    event env progress
 
 showExport :: Env -> IO ()
 showExport env = do
@@ -406,7 +412,7 @@ runCommand command env =
       createAndTransfer env name transf
     Info -> runWithGui InfoState IsQuitable $ do
       showInfo env
-    GUI -> runWithGui GUIState IsQuitable $ do
+    GUI -> runWithGui GUIState IsRunning $ do
       gui env
     UpdateFolders -> runWithGui UpdateFoldersState IsRunning $ do
       updateFolders env

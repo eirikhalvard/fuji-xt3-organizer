@@ -14,7 +14,6 @@
 # Mangler / Behov
 
 - Hente ut rawfiler for viktige bilder
-- automatisk opplasting av backgrounds til chromecast
 - prosess for sletting av raw/jpg bilder
 
 # Ideer
@@ -22,5 +21,3 @@
 - script som sletter tilhørende raw/jpg hvis en mangler
 - iCloud for bildedeling til telefon
 - webapp for culling av bilder
-- foreign call til applescript
-
