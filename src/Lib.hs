@@ -430,6 +430,12 @@ getName GUI = Nothing
 getName UpdateFolders = Nothing
 getName ShowExport = Nothing
 
+startProgram :: Env -> IO ()
+startProgram env = do
+  event env . SDStatus =<< directoryExists (sdLib env)
+  event env . SSDStatus =<< directoryExists (ssdLib env)
+  event env . ExportStatus =<< directoryExists (exportLib env)
+
 event :: Env -> ApplicationEvent -> IO ()
 event env = BC.writeBChan (eventChan env)
 
@@ -454,8 +460,9 @@ runCommand command env =
     ShowExport -> runWithGui ShowExportState IsRunning $ do
       showExport env
  where
+  fs = FolderStatus False False False
   runWithGui cmdState quitable program =
     runGui
       (eventChan env)
-      (State env cmdState quitable [])
-      (program <* event env Finished)
+      (State env cmdState quitable [] fs)
+      (startProgram env *> program <* event env Finished)

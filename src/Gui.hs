@@ -51,7 +51,7 @@ data Name = ViewportScroller deriving (Eq, Show)
 guiDraw :: AppState -> [T.Widget String]
 guiDraw appState = [ui]
  where
-  (State env commandState quitable logList) = appState
+  (State env commandState quitable logList folderStatus) = appState
   ui =
     drawHeader appState
       <=> hCenter (drawMain commandState)
@@ -59,7 +59,7 @@ guiDraw appState = [ui]
       <=> hCenter (padBottom (T.Pad 1) (quitableWidget quitable))
 
 drawHeader :: AppState -> T.Widget String
-drawHeader (State env commandState quitable logList) =
+drawHeader (State env commandState quitable logList folderStatus) =
   let fields =  hBox [text, status]
       text =
         vBox
@@ -73,13 +73,13 @@ drawHeader (State env commandState quitable logList) =
           [ case quitable of
               IsQuitable -> statusStr Good "Program is finished ('q' to quit)"
               IsRunning -> statusStr InProgress "Program is running"
-          , if True -- TODO fix real value
+          , if sdStatus folderStatus
               then statusStr Good "Connected"
               else statusStr Bad "Not connected"
-          , if True -- TODO fix real value
+          , if ssdStatus folderStatus
               then statusStr Good "Connected"
               else statusStr Bad "Not connected"
-          , if False -- TODO fix real value
+          , if exportStatus folderStatus
               then statusStr Good "Exists"
               else statusStr Bad "Does not exist"
           ]
@@ -153,8 +153,14 @@ guiHandleEvent appState (T.AppEvent (TransferProgress n)) =
   M.continue $ updateProgress appState (valid n)
 guiHandleEvent appState (T.AppEvent (AppendLogList entry)) =
   M.continue $ appendToLogList appState entry
-guiHandleEvent (State env cmdState _ logList) (T.AppEvent Finished) =
-  M.continue (State env cmdState IsQuitable logList)
+guiHandleEvent (State env cmdState _ logList folderStatus) (T.AppEvent Finished) =
+  M.continue (State env cmdState IsQuitable logList folderStatus)
+guiHandleEvent (State env cmdState quitable logList folderStatus) (T.AppEvent (SDStatus status)) =
+  M.continue (State env cmdState quitable logList (folderStatus { sdStatus = status }))
+guiHandleEvent (State env cmdState quitable logList folderStatus) (T.AppEvent (SSDStatus status)) =
+  M.continue (State env cmdState quitable logList (folderStatus { ssdStatus = status }))
+guiHandleEvent (State env cmdState quitable logList folderStatus) (T.AppEvent (ExportStatus status)) =
+  M.continue (State env cmdState quitable logList (folderStatus { exportStatus = status }))
 guiHandleEvent appState (T.AppEvent Exit) = M.halt appState
 guiHandleEvent appState (T.VtyEvent (V.EvKey k [])) = handleKeyPress appState k
 guiHandleEvent appState _ = M.continue appState
@@ -175,20 +181,20 @@ handleKeyPress appState (V.KChar k) =
  where
   scrollWith scroller =
     scroller (viewportScroll "ViewportScroller") >> continue appState
-  maybeQuit (State _ _ IsQuitable _) = M.halt appState
+  maybeQuit (State _ _ IsQuitable _ _) = M.halt appState
   maybeQuit _ = M.continue appState
 handleKeyPress appState _ = M.continue appState
 
 updateProgress :: AppState -> Float -> AppState
-updateProgress (State env (TransferState transfer _) q logList) newNum =
-  State env (TransferState transfer newNum) q logList
-updateProgress (State env (CreateAndTransferState name transfer _) q logList) newNum =
-  State env (CreateAndTransferState name transfer newNum) q logList
+updateProgress (State env (TransferState transfer _) q logList folderStatus) newNum =
+  State env (TransferState transfer newNum) q logList folderStatus
+updateProgress (State env (CreateAndTransferState name transfer _) q logList folderStatus) newNum =
+  State env (CreateAndTransferState name transfer newNum) q logList folderStatus
 updateProgress other _ = other
 
 appendToLogList :: AppState -> String -> AppState
-appendToLogList (State env cmdState q logList) entry =
-  State env cmdState q (entry : logList)
+appendToLogList (State env cmdState q logList folderStatus) entry =
+  State env cmdState q (entry : logList) folderStatus
 
 doneAttr, todoAttr :: A.AttrName
 doneAttr = theBaseAttr <> A.attrName "X:done"

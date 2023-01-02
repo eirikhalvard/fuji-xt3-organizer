@@ -34,7 +34,12 @@ data Env = Env
 
 data Extension = Jpg String | Raw String | Export String | Movie String
 
-data AppState = State Env CommandState Quitable LogList
+data AppState = State Env CommandState Quitable LogList FolderStatus
+
+data FolderStatus = FolderStatus { 
+sdStatus :: Bool, ssdStatus :: Bool 
+  , exportStatus :: Bool
+                                 }
 
 data Quitable = IsQuitable | IsRunning
 
@@ -52,5 +57,8 @@ data CommandState
 data ApplicationEvent
   = TransferProgress Float
   | AppendLogList String
+  | SDStatus Bool
+  | SSDStatus Bool
+  | ExportStatus Bool
   | Finished
   | Exit
