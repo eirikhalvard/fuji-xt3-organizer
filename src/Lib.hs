@@ -33,10 +33,14 @@ getLoggedPhotos = parseLoggedPhotos <$> readProcess "/Users/n647546/Drive/Skole/
 parseLoggedPhotos :: String -> Map String (Set String)
 parseLoggedPhotos str = foldersToMap parsed
  where
-  splitted = splitOn ";;;" <$> splitOnWithPrefix "|||" str
+  splitted = splitOn ";;;" <$> parseApplescriptLog str
   parsed = fmap parseOneAlbum splitted
   parseOneAlbum [] = error "PARSE error from logging photos: no album name or files"
   parseOneAlbum (album : files) = (album, files)
+
+parseApplescriptLog :: String -> [String]
+parseApplescriptLog = splitOnWithPrefix "|||"
+ where
   splitOnWithPrefix sep = splitOn sep . dropPrefix sep
 
 foldersToMap :: [(String, [String])] -> Map String (Set String)
@@ -46,7 +50,7 @@ create :: Env -> String -> IO ()
 create env name = do
   setOrCreateDirectory env
   createStructure env
-  mapM_ setClipboard (folderName env)
+  createPhotosAlbum env
 
 transfer :: Env -> String -> Transfer -> IO ()
 transfer env name transf = do
@@ -57,7 +61,7 @@ createAndTransfer :: Env -> String -> Transfer -> IO ()
 createAndTransfer env name transf = do
   setOrCreateDirectory env
   createStructure env
-  mapM_ setClipboard (folderName env)
+  createPhotosAlbum env
   transferPhotos env transf
 
 showInfo :: Env -> IO ()
@@ -266,6 +270,13 @@ createStructure env = do
  where
   createOrCrash Nothing = error "Cant create directories since no folder is provided"
   createOrCrash (Just path) = createDirectory path
+
+createPhotosAlbum :: Env -> IO ()
+createPhotosAlbum env = case folderName env of
+  Nothing -> error "no folder name. something went wrong"
+  Just fn -> do
+    logEventsRaw <- readProcess "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/createFolder" [fn] ""
+    mapM_ (logEvent env) $ parseApplescriptLog logEventsRaw
 
 transferPhotos :: Env -> Transfer -> IO ()
 transferPhotos env transfer = do

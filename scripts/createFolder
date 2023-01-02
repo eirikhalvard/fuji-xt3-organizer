@@ -1,0 +1,27 @@
+#!/usr/bin/env osascript
+
+on run argv
+  tell application "Photos"
+    set output to ""
+    set yearString to year of (current date) as string
+    set fujiFolder to (get folder "Fuji" of folder "Pictures")
+  
+    -- ensure that the folder for the current year exists in photos
+    if not (exists folder yearString of fujiFolder) then
+      set output to output & "|||(Photos) " & "Making new folder for current year " & yearString
+      make new folder named yearString at fujiFolder
+    end if
+    set currentYear to get folder yearString of fujiFolder
+  
+    set nameOfAlbum to item 1 of argv
+    if (exists album nameOfAlbum of currentYear) then
+      set output to output & "|||(Photos) " & "ERROR: Album '" & nameOfAlbum & "' already exists. exiting script"
+      return output
+    end if
+
+    set output to output & "|||(Photos) " & "Creating album '" & nameOfAlbum & "'"
+    set thisAlbum to make new album named nameOfAlbum at currentYear
+  
+  end tell
+  return output
+end run
