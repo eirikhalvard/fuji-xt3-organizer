@@ -6,7 +6,7 @@
 tell application "Photos"
     set output to ""
     repeat with i in albums
-        set tFolder to (the POSIX path of "/Users/n647546/Pictures/Export/" & (get name of i)) as POSIX file as text
+        set tFolder to (the POSIX path of (path to pictures folder) & "Export/" & (get name of i)) as POSIX file as text
         repeat 1 times
             set theimages to get media items of i
             set output to output & "|||" & (get name of i)
