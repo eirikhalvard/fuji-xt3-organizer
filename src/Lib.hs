@@ -27,8 +27,11 @@ import System.Hclip (setClipboard)
 import System.PosixCompat.Files (getFileStatus)
 import System.Process.Extra (readProcess)
 
+scriptFolder :: String
+scriptFolder = "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/"
+
 getLoggedPhotos :: IO (Map String (Set String))
-getLoggedPhotos = parseLoggedPhotos <$> readProcess "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/logphotos" [] ""
+getLoggedPhotos = parseLoggedPhotos <$> readProcess (scriptFolder ++ "logphotos") [] ""
 
 parseLoggedPhotos :: String -> Map String (Set String)
 parseLoggedPhotos str = foldersToMap parsed
@@ -56,6 +59,7 @@ transfer :: Env -> String -> Transfer -> IO ()
 transfer env name transf = do
   setOrCreateDirectory env
   transferPhotos env transf
+  importToPhotos env transf
 
 createAndTransfer :: Env -> String -> Transfer -> IO ()
 createAndTransfer env name transf = do
@@ -63,6 +67,7 @@ createAndTransfer env name transf = do
   createStructure env
   createPhotosAlbum env
   transferPhotos env transf
+  importToPhotos env transf
 
 showInfo :: Env -> IO ()
 showInfo env = do
@@ -275,7 +280,7 @@ createPhotosAlbum :: Env -> IO ()
 createPhotosAlbum env = case folderName env of
   Nothing -> error "no folder name. something went wrong"
   Just fn -> do
-    logEventsRaw <- readProcess "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/createFolder" [fn] ""
+    logEventsRaw <- readProcess (scriptFolder ++ "createFolder") [fn] ""
     mapM_ (logEvent env) $ parseApplescriptLog logEventsRaw
 
 transferPhotos :: Env -> Transfer -> IO ()
@@ -322,6 +327,25 @@ transferSingle env path progress filename = do
         >> copyFileWithMetadata originAbsolute destinationAbsolute
         >> removeFile originAbsolute
         >> event env (TransferProgress progress)
+
+importToPhotos :: Env -> Transfer -> IO ()
+importToPhotos env (RangeTransfer s e) =
+  logEvent env $
+    "WARNING: importing a range of photos to Photos not supported. should be done manually for range("
+      ++ show s
+      ++ ", "
+      ++ show e
+      ++ ")"
+importToPhotos env AllTransfer = case folderName env of
+  Nothing -> error "no folder name. something went wrong"
+  Just fn -> do
+    case jpgPath env of 
+      Nothing -> error "no jpg path, something is wrong"
+      Just jpgPart -> do 
+        let tranferFolder = ssdLib env ++ jpgPart
+        logEventsRaw <- readProcess (scriptFolder ++ "transferPhotos") [fn, tranferFolder] ""
+        mapM_ (logEvent env) $ parseApplescriptLog logEventsRaw
+
 
 getExtension :: String -> String
 getExtension = tail . dropWhile (/= '.')

@@ -1,0 +1,33 @@
+#!/usr/bin/env osascript
+
+-- `getImageList` function inspired by https://github.com/codez/ImportPhotoFolders
+on getImageList(path)
+	set extensionsList to {"jpg", "png", "tiff", "JPG", "jpeg", "gif", "JPEG", "PNG", "TIFF", "GIF", "MOV", "mov", "MP4", "mp4", "MPG", "mpg", "BMP", "bmp", "TIF", "tif", "AVI", "avi", "PSD", "psd", "ai", "AI", "orf", "ORF", "nef", "NEF", "crw", "CRW", "cr2", "CR2", "dng", "DNG", "PEF", "HEIC", "RAF", "RAW", "raf"}
+  set transferFolder to path as POSIX file
+	tell application "Finder" 
+    set theFiles to get every file of folder transferFolder whose name extension is in extensionsList
+  end tell
+	set imageList to {}
+	repeat with i from 1 to number of items in theFiles
+		set thisItem to item i of theFiles as alias
+		set the end of imageList to thisItem
+	end repeat
+	imageList
+end getImageList
+
+on run argv
+  set output to ""
+
+  set transferPath to item 2 of argv
+  set filesToImport to getImageList(transferPath)
+
+  tell application "Photos"
+    set yearString to year of (current date) as string
+    set currentYear to (get folder yearString of folder "Fuji" of folder "Pictures")
+    set nameOfAlbum to item 1 of argv
+    set thisAlbum to get album nameOfAlbum of currentYear
+    import filesToImport into thisAlbum
+    set output to output & "|||(Photos) " & "Imported photos into '" & nameOfAlbum & "'"
+  end tell
+  return output
+end run
