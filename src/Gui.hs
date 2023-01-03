@@ -64,8 +64,8 @@ drawHeader (State env commandState quitable logList folderStatus) =
       text =
         vBox
           [ str "State: "
-          , str "SSD: "
           , str "SD Card: "
+          , str "SSD: "
           , str "Export: "
           ]
       status =
