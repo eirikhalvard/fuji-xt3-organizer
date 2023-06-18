@@ -51,7 +51,7 @@ createAndTransfer env name transf = do
 showInfo :: Env -> IO ()
 showInfo env = do
     checkExistence (sdLib env)
-    checkExistence (ssdLib env)
+    checkExistence (ssdBaseLib env)
     checkExistence (exportLib env)
   where
     checkExistence filepath = do
@@ -122,7 +122,7 @@ addToFolder env toFolder filename = do
                 let year = "20" ++ [y1, y2]
                     month = [m1, m2]
                     day = [d1, d2]
-                    ssdBaseDir = ssdBaseLib env ++ year ++ "/"
+                    ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
                     folderPrefix = concat [year, "-", month, "-", day]
                 withCurrentDirectory ssdBaseDir $ do
                     folders <- System.Directory.listDirectory "."
@@ -133,7 +133,7 @@ addToFolder env toFolder filename = do
                 -- filename: legacy filename
                 concatMapM
                     ( \year ->
-                        let ssdBaseDir = ssdBaseLib env ++ year ++ "/"
+                        let ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
                          in fmap (ssdBaseDir ++) <$> System.Directory.listDirectory ssdBaseDir
                     )
                     ["2021", "2022"]
@@ -240,8 +240,15 @@ getFileInfo filepath = do
 
 setOrCreateDirectory :: Env -> IO ()
 setOrCreateDirectory env = do
-    createDirectoryIfMissing False (ssdLib env)
-    setCurrentDirectory (ssdLib env)
+    hardDriveExists <- directoryExists (ssdBaseLib env)
+    if hardDriveExists
+        then do
+            createDirectoryIfMissing True (ssdLib env)
+            setCurrentDirectory (ssdLib env)
+        else do
+            logEvent env "No hard drive connected"
+            threadDelay 1500000
+            event env Exit
 
 createStructure :: Env -> IO ()
 createStructure env = do
@@ -386,14 +393,14 @@ getEnv mName chan = do
     hardDrive <- do
         entries <- listDirectory "/Volumes/"
         let relevant = filter (isPrefixOf "EirikT5") entries
-            drive = head (relevant ++ ["UnknownHarddrive"])
+            drive = head (relevant ++ ["UnknownHardDrive"])
         return $ "/Volumes/" ++ drive
 
     return $
         Env
             { sdLib = "/Volumes/Untitled/DCIM/"
             , ssdLib = hardDrive ++ "/Pictures/Fuji/" ++ year ++ "/"
-            , ssdBaseLib = hardDrive ++ "/Pictures/Fuji/"
+            , ssdBaseLib = hardDrive
             , exportLib = homeDirectory ++ "/Pictures/Export/"
             , jpgFolderName = "01_JPG"
             , rawFolderName = "02_RAW"
@@ -417,7 +424,7 @@ getName ShowExport = Nothing
 startProgram :: Env -> IO ()
 startProgram env = do
     event env . SDStatus =<< directoryExists (sdLib env)
-    event env . SSDStatus =<< directoryExists (ssdLib env)
+    event env . SSDStatus =<< directoryExists (ssdBaseLib env)
     event env . ExportStatus =<< directoryExists (exportLib env)
 
 event :: Env -> ApplicationEvent -> IO ()
