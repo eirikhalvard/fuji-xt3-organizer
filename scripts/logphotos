@@ -8,11 +8,19 @@ tell application "Photos"
     repeat with i in albums
         set tFolder to (the POSIX path of (path to pictures folder) & "Export/" & (get name of i)) as POSIX file as text
         repeat 1 times
-            set theimages to get media items of i
+            try
+                set theimages to get media items of i
+            on error line number num
+                display dialog "Error on line number " & num
+            end try
             set output to output & "|||" & (get name of i)
             repeat with image in theimages
-                set imgFilename to the ({filename of image})
-                set output to output & ";;;" & imgFilename
+                try
+                    set imgFilename to the ({filename of image})
+                    set output to output & ";;;" & imgFilename
+                # on error line number num
+                #     display dialog "Errorrr on line number " & num
+                end try
             end repeat
         end repeat
     end repeat
