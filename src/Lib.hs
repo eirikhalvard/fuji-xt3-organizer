@@ -339,11 +339,10 @@ withExtension filename = extended
         | isMovie ext = Movie filename
         | otherwise = Export filename
 
-isJpg, isRaw, isExport, isMovie :: String -> Bool
-isJpg extension = extension `elem` ["jpg", "jpeg", "JPG", "JPEG"]
-isRaw extension = extension `elem` ["raw", "raf", "RAW", "RAF"]
-isExport extension = not (isJpg extension || isRaw extension || isMovie extension)
-isMovie extension = extension `elem` ["mov", "MOV", "mp4", "MPEG4", "AVI"]
+isJpg, isRaw, isMovie :: String -> Bool
+isJpg extension = fmap toLower extension `elem` ["jpg", "jpeg", "png", "tiff", "gif", "bmp", "tif", "heic"]
+isRaw extension = fmap toLower extension `elem` ["raw", "raf", "cr2", "cr3", "psd", "ai"]
+isMovie extension = fmap toLower extension `elem` ["mov", "mp4", "mpeg4", "avi"]
 
 ---------------
 --  Helpers  --
