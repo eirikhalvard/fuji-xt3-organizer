@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.35.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 724e14a212a2cb5f451a2d29403e8327ae42c471906e71e619d2dee87c54d84f
+-- hash: c742d1459f0235b0b22eae09d5105ef5e5ad93b048c2a64908da4ccd720ca4b3
 
 name:           fuji
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
       Cli
       Gui
       Lib
+      Scripts
       Types
   other-modules:
       Paths_fuji

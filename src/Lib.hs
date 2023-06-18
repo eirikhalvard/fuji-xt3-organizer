@@ -383,11 +383,17 @@ getEnv mName chan = do
     canonicalFilenamePrefix <- formatTime defaultTimeLocale "%y%m%d" <$> getCurrentTime
     folderName <- getFolderName mName
     homeDirectory <- getHomeDirectory
+    hardDrive <- do
+        entries <- listDirectory "/Volumes/"
+        let relevant = filter (isPrefixOf "EirikT5") entries
+            drive = head (relevant ++ ["UnknownHarddrive"])
+        return $ "/Volumes/" ++ drive
+
     return $
         Env
             { sdLib = "/Volumes/Untitled/DCIM/"
-            , ssdLib = "/Volumes/EirikT5/Pictures/Fuji/" ++ year ++ "/"
-            , ssdBaseLib = "/Volumes/EirikT5/Pictures/Fuji/"
+            , ssdLib = hardDrive ++ "/Pictures/Fuji/" ++ year ++ "/"
+            , ssdBaseLib = hardDrive ++ "/Pictures/Fuji/"
             , exportLib = homeDirectory ++ "/Pictures/Export/"
             , jpgFolderName = "01_JPG"
             , rawFolderName = "02_RAW"
