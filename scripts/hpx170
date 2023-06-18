@@ -1,0 +1,21 @@
+#/usr/bin/env bash
+
+pushd video
+
+for video in *; do
+  base="${video%.*}"
+  audio00="../audio/${base}00.MXF"
+  audio01="../audio/${base}01.MXF"
+  audio02="../audio/${base}02.MXF"
+  audio03="../audio/${base}03.MXF"
+  ffmpeg -i "${video}" -i "${audio00}" -i "${audio01}" -i "${audio02}" -i "${audio03}" -c:v libx264 -c:a aac -strict experimental ../export/${base}.mp4
+done
+
+popd video
+
+
+# ffmpeg -i "${video}" -i "${audio00}" -i "${audio01}" -i "${audio02}" -i "${audio03}" -filter_complex "[1:0] [2:0] amerge" -c:v libx264 -c:a aac -strict experimental -qscale 0 -y  ./rigg.mp4
+
+# ffmpeg -i "${video}" -i "${audio00}" -i "${audio01}" -i "${audio02}" -i "${audio03}" -c:v libx264 -c:a aac -strict experimental ./rigg.mp4
+
+# ffmpeg -i "0001NZ.MXF" -i "0001NZ00.MXF" -i "0001NZ01.MXF" -i "0001NZ02.MXF" -i "0001NZ03.MXF" -c:v libx264 -c:a aac -strict experimental ./rigg.mp4

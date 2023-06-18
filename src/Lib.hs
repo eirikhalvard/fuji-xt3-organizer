@@ -28,7 +28,7 @@ import System.PosixCompat.Files (getFileStatus)
 import System.Process.Extra (readProcess)
 
 scriptFolder :: String
-scriptFolder = "/Users/n647546/Drive/Skole/Prosjekter/Haskell/fuji/scripts/"
+scriptFolder = "/Users/eirik.sather/Drive/Skole/Prosjekter/Haskell/fuji/scripts/"
 
 getLoggedPhotos :: IO (Map String (Set String))
 getLoggedPhotos = parseLoggedPhotos <$> readProcess (scriptFolder ++ "logphotos") [] ""
@@ -280,8 +280,10 @@ createPhotosAlbum :: Env -> IO ()
 createPhotosAlbum env = case folderName env of
   Nothing -> error "no folder name. something went wrong"
   Just fn -> do
+    logEvent env "creating structure in photos album"
     logEventsRaw <- readProcess (scriptFolder ++ "createFolder") [fn] ""
     mapM_ (logEvent env) $ parseApplescriptLog logEventsRaw
+    logEvent env "done creating structure in photos album"
 
 transferPhotos :: Env -> Transfer -> IO ()
 transferPhotos env transfer = do
@@ -364,7 +366,7 @@ isJpg, isRaw, isExport, isMovie :: String -> Bool
 isJpg extension = extension `elem` ["jpg", "jpeg", "JPG", "JPEG"]
 isRaw extension = extension `elem` ["raw", "raf", "RAW", "RAF"]
 isExport extension = not (isJpg extension || isRaw extension || isMovie extension)
-isMovie extension = extension `elem` ["mov", "MOV", "mp4", "MPEG4"]
+isMovie extension = extension `elem` ["mov", "MOV", "mp4", "MPEG4", "AVI"]
 
 ---------------
 --  Helpers  --

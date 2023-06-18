@@ -21,3 +21,11 @@
 - script som sletter tilhørende raw/jpg hvis en mangler
 - iCloud for bildedeling til telefon
 - webapp for culling av bilder
+
+## Nettside
+
+- bygge i typescript og react
+- next.js og vercel
+- hente alle bilder fra google drive
+- vise frem i rekkefølge
+- trent modell som serves via api for å sortere på tags, farger osv
