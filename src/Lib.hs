@@ -88,6 +88,7 @@ updateFromDiff env diffResult = do
                 removeFilePaths = (\filename -> toFolder ++ "/" ++ filename) <$> S.toList toRemove
             createDirectoryIfMissing False toFolder
             mapM_ (addToFolder env toFolder) $ S.toList toAdd
+            mapM_ (\removeFilePath -> logEvent env $ "SHOULD REMOVE: " ++ removeFilePath) removeFilePaths
         )
         $ Map.toList diffResult
 
@@ -124,17 +125,16 @@ addToFolder env toFolder filename = do
                     day = [d1, d2]
                     ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
                     folderPrefix = concat [year, "-", month, "-", day]
-                withCurrentDirectory ssdBaseDir $ do
-                    folders <- System.Directory.listDirectory "."
-                    let relevant = filter (isPrefixOf folderPrefix) folders
-                    let fullPath = (ssdBaseDir ++) <$> relevant
-                    return fullPath
+                folders <- listDirectoryIfExists ssdBaseDir
+                let relevant = filter (isPrefixOf folderPrefix) folders
+                let fullPath = (ssdBaseDir ++) <$> relevant
+                return fullPath
             _ ->
                 -- filename: legacy filename
                 concatMapM
                     ( \year ->
                         let ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
-                         in fmap (ssdBaseDir ++) <$> System.Directory.listDirectory ssdBaseDir
+                         in fmap (ssdBaseDir ++) <$> listDirectoryIfExists ssdBaseDir
                     )
                     ["2021", "2022"]
     potentialFiles :: IO [FilePath]
@@ -166,6 +166,15 @@ diffPhotos =
                  in (toRemove, toAdd)
             )
         )
+
+listDirectoryIfExists :: FilePath -> IO [FilePath]
+listDirectoryIfExists dir = do
+    exists <- doesDirectoryExist dir
+    entries <-
+        if exists
+            then System.Directory.listDirectory dir
+            else pure []
+    return $ entries
 
 gui :: Env -> IO ()
 gui env = do
