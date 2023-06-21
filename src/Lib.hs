@@ -13,7 +13,7 @@ import Control.Monad.Extra (concatMapM, filterM, zipWithM_)
 import Data.Char (isDigit, isSpace, toLower, toUpper)
 import Data.Either (partitionEithers)
 import Data.List (isPrefixOf, sort)
-import Data.List.Extra (chunksOf, dropPrefix, splitOn)
+import Data.List.Extra (chunksOf, dropEnd, dropPrefix, splitOn, takeEnd)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Map.Merge.Strict
@@ -159,24 +159,30 @@ diffPhotos ::
     Map String (Set String, Set String)
 diffPhotos =
     merge
-        (mapMissing (\k inCurrent -> (S.empty, S.empty))) -- dont remove old folders
-        (mapMissing (\k inLogged -> (S.empty, inLogged))) -- nothing to remove, add all
+        (mapMissing (\k currentFiles -> (S.empty, S.empty))) -- dont remove old folders
+        (mapMissing (\k loggedFiles -> (S.empty, loggedFiles))) -- nothing to remove, add all
         ( zipWithMatched
-            ( \k inCurrent inLogged ->
-                let toRemove = S.difference inCurrent inLogged
-                    toAdd = S.difference inLogged inCurrent
-                 in (toRemove, toAdd)
+            ( \k currentFiles loggedFiles ->
+                let
+                    normalize fn =
+                        -- Since duplicates can happen, we need to consider 'file_1.JPG' and 'file.JPG' the same
+                        let (base, extension) = span (/= '.') fn
+                         in case takeEnd 2 base of
+                                ['_', d] | isDigit d -> dropEnd 2 base ++ extension
+                                _ -> fn
+                    toRemove = S.filter (\fn -> normalize fn `S.notMember` loggedFiles) currentFiles
+                    toAdd = S.difference loggedFiles (S.map normalize currentFiles)
+                 in
+                    (toRemove, toAdd)
             )
         )
 
 listDirectoryIfExists :: FilePath -> IO [FilePath]
 listDirectoryIfExists dir = do
     exists <- doesDirectoryExist dir
-    entries <-
-        if exists
-            then System.Directory.listDirectory dir
-            else pure []
-    return $ entries
+    if exists
+        then System.Directory.listDirectory dir
+        else pure []
 
 gui :: Env -> IO ()
 gui env = do
