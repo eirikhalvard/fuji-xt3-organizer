@@ -1,13 +1,13 @@
-name:                fuji
-version:             0.1.0.0
-github:              "eirikhalvard/fuji-xt3-organizer"
-license:             BSD3
-author:              "Eirik Halvard Sæther"
-maintainer:          "eirik.halvard.95@gmail.com"
-copyright:           "2022 Eirik Halvard Sæther"
+name: fuji
+version: 0.1.0.0
+github: "eirikhalvard/fuji-xt3-organizer"
+license: BSD3
+author: "Eirik Halvard Sæther"
+maintainer: "eirik.halvard.95@gmail.com"
+copyright: "2022 Eirik Halvard Sæther"
 
 extra-source-files:
-- README.md
+  - README.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -16,42 +16,42 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/eirikhalvard/fuji-xt3-organizer#readme>
+description: Please see the README on GitHub at <https://github.com/eirikhalvard/fuji-xt3-organizer#readme>
 
 dependencies:
-- base >= 4.7 && < 5
-- directory
-- time
-- optparse-applicative
-- unix-compat
-- filepath
-- containers
-- extra
-- Hclip
-- brick
-- vty
+  - base >= 4.7 && < 5
+  - directory
+  - time
+  - optparse-applicative
+  - unix-compat
+  - filepath
+  - containers
+  - extra
+  - Hclip
+  - brick
+  - vty
 
 library:
   source-dirs: src
 
 executables:
   fuji:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - fuji
+      - fuji
 
 tests:
   fuji-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - fuji
+      - fuji
