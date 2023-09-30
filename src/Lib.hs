@@ -409,7 +409,7 @@ getEnv mName chan = do
     homeDirectory <- getHomeDirectory
     hardDrive <- do
         entries <- listDirectory "/Volumes/"
-        let relevant = filter (isPrefixOf "EirikT5") entries
+        let relevant = filter (isPrefixOf "EirikT") entries
             drive = head (relevant ++ ["UnknownHardDrive"])
         return $ "/Volumes/" ++ drive
 
