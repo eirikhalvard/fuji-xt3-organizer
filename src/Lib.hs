@@ -72,18 +72,14 @@ updateFolders env = do
     loggedPhotos <- runLogPhotos
     logEvent env "Fetching information from export folder on the file system"
     currentPhotos <- getPhotosFromFolder env
-    logEvent env "diffing"
     let diffResult = diffPhotos currentPhotos loggedPhotos
-    logEvent env "diffed"
-    logEvent env "work to do:"
     updateFromDiff env diffResult
 
 getPhotosFromFolder :: Env -> IO (Map String (Set String))
 getPhotosFromFolder env = fmap (S.map fst) <$> createExportMap env
 
 updateFromDiff :: Env -> Map String (Set String, Set String) -> IO ()
-updateFromDiff env diffResult = do
-    logEvent env "updating ........"
+updateFromDiff env diffResult =
     mapM_
         ( \(name, (toRemove, toAdd)) -> do
             let toFolder = exportLib env ++ name
