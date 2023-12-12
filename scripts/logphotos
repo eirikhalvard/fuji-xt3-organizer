@@ -5,8 +5,11 @@
 
 tell application "Photos"
     set output to ""
-    repeat with i in albums
-        set tFolder to (the POSIX path of (path to pictures folder) & "Export/" & (get name of i)) as POSIX file as text
+    set targetAlbumNames to {"idafam", "Bangers", "Backgrounds", "Venner", "Street"}
+
+    repeat with albumName in targetAlbumNames
+        set i to (get album albumName)
+        set tFolder to (the POSIX path of (path to pictures folder) & "Export/" & albumName) as POSIX file as text
         repeat 1 times
             try
                 set theimages to get media items of i
@@ -18,8 +21,6 @@ tell application "Photos"
                 try
                     set imgFilename to the ({filename of image})
                     set output to output & ";;;" & imgFilename
-                # on error line number num
-                #     display dialog "Errorrr on line number " & num
                 end try
             end repeat
         end repeat

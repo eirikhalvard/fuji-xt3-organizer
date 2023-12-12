@@ -68,7 +68,9 @@ directoryExists fp =
 
 updateFolders :: Env -> IO ()
 updateFolders env = do
+    logEvent env "Running logphotos applescript. Fetching album information from Photos app"
     loggedPhotos <- runLogPhotos
+    logEvent env "Fetching information from export folder on the file system"
     currentPhotos <- getPhotosFromFolder env
     logEvent env "diffing"
     let excludeFolders = [".DS_Store", "iPod Photo Cache", "Brett 🛹", "CapCut", "CapCut\n", "FUJIFILM X-T3", "Gifs", "Instagram", "Memes", "Snapchat", "VSCO", "VSCO Cam", "Wish"]
@@ -102,7 +104,7 @@ addToFolder env toFolder filename = do
             let toPath = toFolder ++ "/" ++ filename
             logEvent env $ "COPYING " ++ filename ++ " to " ++ toFolder
             copyFile fromPath toPath
-        [] -> logEvent env ("No matching folder for " ++ filename)
+        [] -> logEvent env ("Could not find source file " ++ filename ++ ". Could not copy to folder " ++ toFolder ++ ". Try switching harddrive")
         xs -> do
             logEvent env ("Several matches for file " ++ filename ++ " to " ++ toFolder)
             let tmp = toFolder ++ "/tmp"
@@ -132,13 +134,13 @@ addToFolder env toFolder filename = do
                 let fullPath = (ssdBaseDir ++) <$> relevant
                 return fullPath
             _ ->
-                -- filename: legacy filename
+                -- filename: legacy filename or custom filename
                 concatMapM
                     ( \year ->
                         let ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
                          in fmap (ssdBaseDir ++) <$> listDirectoryIfExists ssdBaseDir
                     )
-                    ["2021", "2022"]
+                    ["2021", "2022", "2023", "2024", "2025", "2026"]
     potentialFiles :: IO [FilePath]
     potentialFiles =
         concatMap
@@ -230,9 +232,9 @@ showNumBytes n = prefix ++ getPostfix (length rest `div` 3)
 createExportMap :: Env -> IO (Map String (Set (String, Integer)))
 createExportMap env = do
     setCurrentDirectory (exportLib env)
-    let excludeFolders = [".DS_Store", "iPod Photo Cache"]
+    let includeFolders = ["idafam", "Bangers", "Backgrounds", "Venner", "Street"]
     folders <- System.Directory.listDirectory "."
-    let relevantFolders = filter (`notElem` excludeFolders) folders
+    let relevantFolders = filter (`elem` includeFolders) folders
     Map.fromList <$> mapM getFolderEntry relevantFolders
 
 getFolderEntry :: FilePath -> IO (String, Set (String, Integer))
