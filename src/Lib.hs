@@ -73,12 +73,10 @@ updateFolders env = do
     logEvent env "Fetching information from export folder on the file system"
     currentPhotos <- getPhotosFromFolder env
     logEvent env "diffing"
-    let excludeFolders = [".DS_Store", "iPod Photo Cache", "Brett 🛹", "CapCut", "CapCut\n", "FUJIFILM X-T3", "Gifs", "Instagram", "Memes", "Snapchat", "VSCO", "VSCO Cam", "Wish"]
     let diffResult = diffPhotos currentPhotos loggedPhotos
-    let filteredDiffResult = Map.filterWithKey (\k _ -> k `notElem` excludeFolders) diffResult
     logEvent env "diffed"
     logEvent env "work to do:"
-    updateFromDiff env filteredDiffResult
+    updateFromDiff env diffResult
 
 getPhotosFromFolder :: Env -> IO (Map String (Set String))
 getPhotosFromFolder env = fmap (S.map fst) <$> createExportMap env
