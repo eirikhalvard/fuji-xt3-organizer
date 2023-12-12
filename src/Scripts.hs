@@ -1,6 +1,7 @@
 module Scripts where
 
 import Data.List.Extra (chunksOf, dropPrefix, splitOn)
+import Data.List (dropWhileEnd)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -35,7 +36,7 @@ getScriptFolder = do
 -- parsers --
 
 parseApplescriptLog :: String -> [String]
-parseApplescriptLog = splitOnWithPrefix "|||"
+parseApplescriptLog = splitOnWithPrefix "|||" . dropWhileEnd (== '\n')
   where
     splitOnWithPrefix sep = splitOn sep . dropPrefix sep
 

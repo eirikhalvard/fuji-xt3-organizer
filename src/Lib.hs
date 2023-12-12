@@ -126,7 +126,7 @@ addToFolder env toFolder filename = do
                     month = [m1, m2]
                     day = [d1, d2]
                     ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
-                    folderPrefix = concat [year, "-", month, "-", day]
+                    folderPrefix = concat [year, "-", month]
                 folders <- listDirectoryIfExists ssdBaseDir
                 let relevant = filter (isPrefixOf folderPrefix) folders
                 let fullPath = (ssdBaseDir ++) <$> relevant
@@ -170,8 +170,8 @@ diffPhotos =
                          in case takeEnd 2 base of
                                 ['_', d] | isDigit d -> dropEnd 2 base ++ extension
                                 _ -> fn
-                    toRemove = S.filter (\fn -> normalize fn `S.notMember` loggedFiles) currentFiles
-                    toAdd = S.difference loggedFiles (S.map normalize currentFiles)
+                    toRemove = S.filter (\fn -> normalize fn `S.notMember` loggedFiles && fn `S.notMember` loggedFiles) currentFiles
+                    toAdd = S.difference loggedFiles (S.union currentFiles $ S.map normalize currentFiles)
                  in
                     (toRemove, toAdd)
             )
