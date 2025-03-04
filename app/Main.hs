@@ -9,5 +9,5 @@ main :: IO ()
 main = do
   command <- parseCommand
   eventChan <- BC.newBChan 10
-  env <- getEnv (getName command) eventChan
+  env <- getEnv (getNameType command) eventChan
   runCommand command env

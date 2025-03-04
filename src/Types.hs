@@ -4,7 +4,7 @@ import qualified Brick.BChan as BC
 
 data Command
     = Create String
-    | Transfer Transfer
+    | Transfer String Transfer
     | CreateAndTransfer String Transfer
     | Info
     | GUI
@@ -63,3 +63,5 @@ data ApplicationEvent
     | ExportStatus Bool
     | Finished
     | Exit
+
+data NameType = Name String | Match String | NoInfo

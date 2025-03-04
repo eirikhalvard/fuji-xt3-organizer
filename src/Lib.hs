@@ -12,7 +12,7 @@ import qualified Control.Concurrent as Thread
 import Control.Monad.Extra (concatMapM, filterM, zipWithM_)
 import Data.Char (isDigit, isSpace, toLower, toUpper)
 import Data.Either (partitionEithers)
-import Data.List (isPrefixOf, sort)
+import Data.List (isInfixOf, isPrefixOf, sort)
 import Data.List.Extra (chunksOf, dropEnd, dropPrefix, splitOn, takeEnd)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -34,16 +34,16 @@ create env name = do
     createStructure env
     createPhotosAlbum env
 
-transfer :: Env -> String -> Transfer -> IO ()
-transfer env name transf = do
+transfer :: Env -> Transfer -> IO ()
+transfer env transf = do
     setOrCreateDirectory env
     transferPhotos env transf
     -- TODO: re-add when fixed
     -- importToPhotos env transf
     logEvent env "WARNING: importing to Photos is not supported in this. Should be done manually for this selection"
 
-createAndTransfer :: Env -> String -> Transfer -> IO ()
-createAndTransfer env name transf = do
+createAndTransfer :: Env -> Transfer -> IO ()
+createAndTransfer env transf = do
     setOrCreateDirectory env
     createStructure env
     createPhotosAlbum env
@@ -117,26 +117,13 @@ addToFolder env toFolder filename = do
   where
     relevantFolders :: IO [FilePath]
     relevantFolders =
-        case filename of
-            (y1 : y2 : m1 : m2 : d1 : d2 : '_' : rest) | all isDigit [y1, y2, m1, m2, d1, d2] -> do
-                -- filename: "yymmdd - some name"
-                let year = "20" ++ [y1, y2]
-                    month = [m1, m2]
-                    day = [d1, d2]
-                    ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
-                    folderPrefix = concat [year, "-", month]
-                folders <- listDirectoryIfExists ssdBaseDir
-                let relevant = filter (isPrefixOf folderPrefix) folders
-                let fullPath = (ssdBaseDir ++) <$> relevant
-                return fullPath
-            _ ->
-                -- filename: legacy filename or custom filename
-                concatMapM
-                    ( \year ->
-                        let ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
-                         in fmap (ssdBaseDir ++) <$> listDirectoryIfExists ssdBaseDir
-                    )
-                    ["2021", "2022", "2023", "2024", "2025", "2026"]
+        -- TODO: actually fetch existing years
+        concatMapM
+            ( \year ->
+                let ssdBaseDir = ssdBaseLib env ++ "/Pictures/Fuji/" ++ year ++ "/"
+                 in fmap (ssdBaseDir ++) <$> listDirectoryIfExists ssdBaseDir
+            )
+            ["2021", "2022", "2023", "2024", "2025", "2026"]
     potentialFiles :: IO [FilePath]
     potentialFiles =
         concatMap
@@ -379,9 +366,21 @@ isMovie extension = fmap toLower extension `elem` ["mov", "mp4", "mpeg4", "avi"]
 getYear :: IO String
 getYear = formatTime defaultTimeLocale "%Y" <$> getCurrentTime
 
-getFolderName :: Maybe String -> IO (Maybe String)
-getFolderName = traverse constructFolderName
+getFolderName :: String -> NameType -> IO (Maybe String)
+getFolderName ssdBaseLibStr nameType = case nameType of
+    Name n -> Just <$> constructFolderName n
+    Match m -> Just <$> findUnambiguousFolderName m
+    NoInfo -> pure Nothing
   where
+    findUnambiguousFolderName match = do
+        year <- getYear
+        let substr = fmap toLower match
+        let ssdBaseDir = ssdBaseLibStr ++ "/Pictures/Fuji/" ++ year ++ "/"
+        folders <- fmap (fmap toLower) <$> listDirectoryIfExists ssdBaseDir
+        let subs = filter (substr `isInfixOf`) folders
+        case subs of
+            [m] -> return m
+            ss -> error "Need to specify an unambigous match-string"
     constructFolderName name = do
         prefix <- formatTime defaultTimeLocale "%Y-%m-%d - " <$> getCurrentTime
         let cleanName = capitalize . trim $ name
@@ -405,17 +404,17 @@ rawPath env = (\base -> base ++ "/" ++ rawFolderName env) <$> folderName env
 exportPath env = (\base -> base ++ "/" ++ exportFolderName env) <$> folderName env
 moviePath env = (\base -> base ++ "/" ++ movieFolderName env) <$> folderName env
 
-getEnv :: Maybe String -> BC.BChan ApplicationEvent -> IO Env
-getEnv mName chan = do
+getEnv :: NameType -> BC.BChan ApplicationEvent -> IO Env
+getEnv nameType chan = do
     year <- getYear
     canonicalFilenamePrefix <- formatTime defaultTimeLocale "%y%m%d" <$> getCurrentTime
-    folderName <- getFolderName mName
     homeDirectory <- getHomeDirectory
     hardDrive <- do
         entries <- listDirectory "/Volumes/"
         let relevant = filter (isPrefixOf "EirikT") entries
             drive = head (relevant ++ ["UnknownHardDrive"])
         return $ "/Volumes/" ++ drive
+    folderName <- getFolderName hardDrive nameType
 
     return $
         Env
@@ -433,14 +432,14 @@ getEnv mName chan = do
             , eventChan = chan
             }
 
-getName :: Command -> Maybe String
-getName (Create name) = Just name
-getName (Transfer _) = Nothing
-getName (CreateAndTransfer name _) = Just name
-getName Info = Nothing
-getName GUI = Nothing
-getName UpdateFolders = Nothing
-getName ShowExport = Nothing
+getNameType :: Command -> NameType
+getNameType (Create name) = Name name
+getNameType (Transfer match _) = Match match
+getNameType (CreateAndTransfer name _) = Name name
+getNameType Info = NoInfo
+getNameType GUI = NoInfo
+getNameType UpdateFolders = NoInfo
+getNameType ShowExport = NoInfo
 
 startProgram :: Env -> IO ()
 startProgram env = do
@@ -459,10 +458,10 @@ runCommand command env =
     case command of
         Create name -> runWithGui (CreateState name) IsRunning $ do
             create env name
-        Transfer transf -> runWithGui (TransferState transf 0.0) IsRunning $ do
-            transfer env "" transf
+        Transfer match transf -> runWithGui (TransferState transf 0.0) IsRunning $ do
+            transfer env transf
         CreateAndTransfer name transf -> runWithGui (CreateAndTransferState name transf 0.0) IsRunning $ do
-            createAndTransfer env name transf
+            createAndTransfer env transf
         Info -> runWithGui InfoState IsQuitable $ do
             showInfo env
         GUI -> runWithGui GUIState IsRunning $ do

@@ -31,7 +31,7 @@ createParser =
 
 transferParser :: Parser Command
 transferParser =
-    Transfer <$> transferComponentParser
+    Transfer <$> matchComponentParser <*> transferComponentParser
 
 createAndTransferParser :: Parser Command
 createAndTransferParser =
@@ -52,6 +52,14 @@ guiParser = pure GUI
 
 exportParser :: Parser Command
 exportParser = pure ShowExport
+
+matchComponentParser :: Parser String
+matchComponentParser =
+    strOption
+        ( long "match"
+            <> metavar "MATCH"
+            <> help "A string to match the foldername with. Must be unambiguous"
+        )
 
 createComponentParser :: Parser String
 createComponentParser =
