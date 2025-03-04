@@ -38,7 +38,9 @@ transfer :: Env -> String -> Transfer -> IO ()
 transfer env name transf = do
     setOrCreateDirectory env
     transferPhotos env transf
-    importToPhotos env transf
+    -- TODO: re-add when fixed
+    -- importToPhotos env transf
+    logEvent env "WARNING: importing to Photos is not supported in this. Should be done manually for this selection"
 
 createAndTransfer :: Env -> String -> Transfer -> IO ()
 createAndTransfer env name transf = do
@@ -328,6 +330,12 @@ transferSingle env path progress filename = do
                 >> removeFile originAbsolute
                 >> event env (TransferProgress progress)
 
+-- TODO: make a version of transferPhotos applescript that can handle only specific files
+--   Either by additionally sending a list of filenames,
+--   or by sending the full paths of each file to transfer
+--
+--   Additionally, this script should be modified to work with
+--   transfering to existing folder. this would now break the AllTransfer case
 importToPhotos :: Env -> Transfer -> IO ()
 importToPhotos env (RangeTransfer s e) =
     logEvent env $
