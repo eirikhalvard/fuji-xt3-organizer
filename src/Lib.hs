@@ -377,7 +377,7 @@ getFolderName ssdBaseLibStr nameType = case nameType of
         let substr = fmap toLower match
         let ssdBaseDir = ssdBaseLibStr ++ "/Pictures/Fuji/" ++ year ++ "/"
         folders <- fmap (fmap toLower) <$> listDirectoryIfExists ssdBaseDir
-        let subs = filter (substr `isInfixOf`) folders
+        let subs = filter (substr `isInfixOf`) . filter (not . ("._" `isPrefixOf`)) $ folders
         case subs of
             [m] -> return m
             ss -> error "Need to specify an unambigous match-string"
