@@ -183,13 +183,13 @@ gui env = do
 showExport :: Env -> IO ()
 showExport env = do
     exportInfo <- createExportMap env
-    showExportMap exportInfo
+    showExportMap env exportInfo
 
-showExportMap :: Map String (Set (String, Integer)) -> IO ()
-showExportMap =
+showExportMap :: Env -> Map String (Set (String, Integer)) -> IO ()
+showExportMap env =
     mapM_
         ( \(name, info) ->
-            putStrLn $
+            logEvent env $
                 name
                     ++ ": "
                     ++ show (length info)

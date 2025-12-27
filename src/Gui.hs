@@ -1,7 +1,10 @@
 module Gui where
 
+import Control.Monad.State (get, modify)
 import qualified Graphics.Vty as V
+import Graphics.Vty.Config (defaultConfig)
 
+import Graphics.Vty.Platform.Unix (mkVty)
 import qualified Brick.AttrMap as A
 import qualified Brick.BChan as BC
 import Brick.Main
@@ -21,8 +24,7 @@ import Types
 runGui :: BC.BChan ApplicationEvent -> AppState -> IO () -> IO ()
 runGui eventChan initialState program = do
     mainThreadId <- forkIO program
-
-    let buildVty = V.mkVty V.defaultConfig
+    let buildVty = mkVty defaultConfig
     initialVty <- buildVty
     finalState <-
         M.customMain
@@ -56,7 +58,7 @@ guiDraw appState = [ui]
         drawHeader appState
             <=> hCenter (drawMain commandState)
             <=> scrollerWidget logList
-            <=> hCenter (padBottom (T.Pad 1) (quitableWidget quitable))
+            <=> hCenter (padBottom (Pad 1) (quitableWidget quitable))
 
 drawHeader :: AppState -> T.Widget String
 drawHeader (State env commandState quitable logList folderStatus) =
@@ -97,7 +99,7 @@ drawHeader (State env commandState quitable logList folderStatus) =
                 )
      in hBox
             [ fields
-            , padLeft T.Max xt3
+            , padLeft Max xt3
             ]
 
 data Status = Good | InProgress | Bad
@@ -148,42 +150,68 @@ progressWidget progressName progress = ui
 guiChooseCursor :: AppState -> [T.CursorLocation String] -> Maybe (T.CursorLocation String)
 guiChooseCursor _ _ = Nothing
 
-guiHandleEvent :: AppState -> T.BrickEvent String ApplicationEvent -> T.EventM String (T.Next AppState)
-guiHandleEvent appState (T.AppEvent (TransferProgress n)) =
-    M.continue $ updateProgress appState (valid n)
-guiHandleEvent appState (T.AppEvent (AppendLogList entry)) =
-    M.continue $ appendToLogList appState entry
-guiHandleEvent (State env cmdState _ logList folderStatus) (T.AppEvent Finished) =
-    M.continue (State env cmdState IsQuitable logList folderStatus)
-guiHandleEvent (State env cmdState quitable logList folderStatus) (T.AppEvent (SDStatus status)) =
-    M.continue (State env cmdState quitable logList (folderStatus{sdStatus = status}))
-guiHandleEvent (State env cmdState quitable logList folderStatus) (T.AppEvent (SSDStatus status)) =
-    M.continue (State env cmdState quitable logList (folderStatus{ssdStatus = status}))
-guiHandleEvent (State env cmdState quitable logList folderStatus) (T.AppEvent (ExportStatus status)) =
-    M.continue (State env cmdState quitable logList (folderStatus{exportStatus = status}))
-guiHandleEvent appState (T.AppEvent Exit) = M.halt appState
-guiHandleEvent appState (T.VtyEvent (V.EvKey k [])) = handleKeyPress appState k
-guiHandleEvent appState _ = M.continue appState
+guiHandleEvent :: T.BrickEvent String ApplicationEvent -> T.EventM String AppState ()
+guiHandleEvent (T.AppEvent (TransferProgress n)) = do
+    modify (\appState ->  updateProgress appState (valid n))
+    return ()
+guiHandleEvent (T.AppEvent (AppendLogList entry)) = do
+    modify (\appState ->  appendToLogList appState entry)
+    return ()
+guiHandleEvent (T.AppEvent Finished) =  do
+    modify (\appState -> setIsQuitable appState)
+    return ()
+guiHandleEvent (T.AppEvent (SDStatus status)) = do
+    modify (\appState -> setSDStatus appState status)
+    return ()
+guiHandleEvent (T.AppEvent (SSDStatus status)) = do
+    modify (\appState -> setSSDStatus appState status)
+    return ()
+guiHandleEvent (T.AppEvent (ExportStatus status)) = do
+    modify (\appState -> setExportStatus appState status)
+    return ()
+guiHandleEvent (T.AppEvent Exit) = M.halt
+guiHandleEvent (T.VtyEvent (V.EvKey k [])) = handleKeyPress k
+guiHandleEvent _ = M.continueWithoutRedraw
 
-handleKeyPress :: AppState -> V.Key -> T.EventM String (T.Next AppState)
-handleKeyPress appState (V.KChar k) =
+setIsQuitable :: AppState -> AppState
+setIsQuitable (State env cmdState _ logList folderStatus) =
+    State env cmdState IsQuitable logList folderStatus
+
+setSDStatus :: AppState -> Bool -> AppState
+setSDStatus (State env cmdState quitable logList folderStatus) status =
+    State env cmdState quitable logList (folderStatus{sdStatus = status})
+
+setSSDStatus :: AppState -> Bool -> AppState
+setSSDStatus (State env cmdState quitable logList folderStatus) status =
+    State env cmdState quitable logList (folderStatus{ssdStatus = status})
+
+setExportStatus :: AppState -> Bool -> AppState
+setExportStatus (State env cmdState quitable logList folderStatus) status =
+    State env cmdState quitable logList (folderStatus{exportStatus = status})
+
+handleKeyPress :: V.Key -> T.EventM String AppState ()
+handleKeyPress (V.KChar k) =
     case k of
-        'q' -> maybeQuit appState
-        'j' -> scrollWith (`vScrollBy` 1)
-        'k' -> scrollWith (`vScrollBy` (-1))
-        'd' -> scrollWith (`vScrollPage` T.Down)
-        'u' -> scrollWith (`vScrollPage` T.Up)
-        'G' -> scrollWith vScrollToEnd
-        'g' -> scrollWith vScrollToBeginning
-        'l' -> scrollWith (`hScrollBy` 1)
-        'h' -> scrollWith (`hScrollBy` (-1))
-        _ -> continue appState
+        'q' -> maybeQuit
+        'j' -> vScrollBy vs 1
+        'k' -> vScrollBy vs (-1)
+        'd' -> vScrollPage vs T.Down
+        'u' -> vScrollPage vs T.Up
+        'G' -> vScrollToEnd vs
+        'g' -> vScrollToBeginning vs
+        'l' -> hScrollBy vs 1
+        'h' -> hScrollBy vs (-1)
+        _ -> M.continueWithoutRedraw
   where
-    scrollWith scroller =
-        scroller (viewportScroll "ViewportScroller") >> continue appState
-    maybeQuit (State _ _ IsQuitable _ _) = M.halt appState
-    maybeQuit _ = M.continue appState
-handleKeyPress appState _ = M.continue appState
+    vs = viewportScroll "ViewportScroller"
+    maybeQuit = do
+        st <- get
+        case st of
+            (State _ _ IsQuitable _ _) ->
+                M.halt
+            _ ->
+                M.continueWithoutRedraw
+handleKeyPress _ = M.continueWithoutRedraw
 
 updateProgress :: AppState -> Float -> AppState
 updateProgress (State env (TransferState transfer _) q logList folderStatus) newNum =
@@ -208,8 +236,8 @@ boldAttr = A.attrName "bold"
 theBaseAttr :: A.AttrName
 theBaseAttr = A.attrName "theBase"
 
-guiStartEvent :: AppState -> T.EventM String AppState
-guiStartEvent = return
+guiStartEvent :: T.EventM String AppState ()
+guiStartEvent = return ()
 
 guiAttrMap :: AppState -> A.AttrMap
 guiAttrMap appState =

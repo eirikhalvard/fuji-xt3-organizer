@@ -30,6 +30,8 @@ dependencies:
   - Hclip
   - brick
   - vty
+  - vty-unix
+  - mtl
 
 library:
   source-dirs: src
