@@ -1,11 +1,10 @@
 module Gui where
 
 import Control.Monad.State (get, modify)
+import qualified Data.Text as TT
 import qualified Graphics.Vty as V
 import Graphics.Vty.Config (defaultConfig)
-import qualified Data.Text as TT
 
-import Graphics.Vty.Platform.Unix (mkVty)
 import qualified Brick.AttrMap as A
 import qualified Brick.BChan as BC
 import Brick.Main
@@ -20,6 +19,7 @@ import qualified Brick.Widgets.ProgressBar as P
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Graphics.Vty
+import Graphics.Vty.Platform.Unix (mkVty)
 import Types
 
 event :: Env -> ApplicationEvent -> IO ()
@@ -159,12 +159,12 @@ guiChooseCursor _ _ = Nothing
 
 guiHandleEvent :: T.BrickEvent String ApplicationEvent -> T.EventM String AppState ()
 guiHandleEvent (T.AppEvent (TransferProgress n)) = do
-    modify (\appState ->  updateProgress appState (valid n))
+    modify (\appState -> updateProgress appState (valid n))
     return ()
 guiHandleEvent (T.AppEvent (AppendLogList entry)) = do
-    modify (\appState ->  appendToLogList appState entry)
+    modify (\appState -> appendToLogList appState entry)
     return ()
-guiHandleEvent (T.AppEvent Finished) =  do
+guiHandleEvent (T.AppEvent Finished) = do
     modify (\appState -> setIsQuitable appState)
     return ()
 guiHandleEvent (T.AppEvent (SDStatus status)) = do
@@ -186,15 +186,15 @@ setIsQuitable (State env cmdState _ logList folderStatus) =
 
 setSDStatus :: AppState -> Bool -> AppState
 setSDStatus (State env cmdState quitable logList folderStatus) status =
-    State env cmdState quitable logList (folderStatus{sdStatus = status})
+    State env cmdState quitable logList (folderStatus {sdStatus = status})
 
 setSSDStatus :: AppState -> Bool -> AppState
 setSSDStatus (State env cmdState quitable logList folderStatus) status =
-    State env cmdState quitable logList (folderStatus{ssdStatus = status})
+    State env cmdState quitable logList (folderStatus {ssdStatus = status})
 
 setExportStatus :: AppState -> Bool -> AppState
 setExportStatus (State env cmdState quitable logList folderStatus) status =
-    State env cmdState quitable logList (folderStatus{exportStatus = status})
+    State env cmdState quitable logList (folderStatus {exportStatus = status})
 
 handleKeyPress :: V.Key -> T.EventM String AppState ()
 handleKeyPress (V.KChar k) =

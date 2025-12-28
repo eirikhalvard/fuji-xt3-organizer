@@ -1,24 +1,23 @@
 module Scripts where
 
-import Paths_fuji (getDataFileName)
-import Types
-import Gui
-import Data.List.Extra (chunksOf, dropPrefix, splitOn)
+import Control.Exception (SomeException, try)
 import Data.List (dropWhileEnd)
+import Data.List.Extra (chunksOf, dropPrefix, splitOn)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Gui
+import Paths_fuji (getDataFileName)
 import System.Directory
+import System.Exit (ExitCode (..), exitWith)
 import System.Process.Extra (readProcess)
-import Control.Exception (try, SomeException)
-import System.Exit (exitWith, ExitCode(..))
+import Types
 
 -- functions --
 
 runCreateFolder :: String -> Env -> IO [String]
 runCreateFolder folderName env = runScript env "createFolder" [folderName] parseApplescriptLog
-
 
 runLogPhotos :: Env -> IO (Map String (Set String))
 runLogPhotos env = runScript env "logphotos" [] parseLoggedPhotos
@@ -35,14 +34,14 @@ runScript env scriptName inputParameters parser = do
     readProcess "/usr/bin/osascript" (scriptPath : inputParameters) ""
     response <- try (readProcess "/usr/bin/osascript" (scriptPath : inputParameters) "") :: IO (Either SomeException String)
     case response of
-      Left err -> do
-        logEvent env "some error occured"
-        logEvent env (show err)
-        event env Finished
-        exitWith (ExitFailure 1)
-      Right r -> do
-        logEvent env "successfully executed script"
-        return $ parser r
+        Left err -> do
+            logEvent env "some error occured"
+            logEvent env (show err)
+            event env Finished
+            exitWith (ExitFailure 1)
+        Right r -> do
+            logEvent env "successfully executed script"
+            return $ parser r
 
 getScriptPath :: FilePath -> IO FilePath
 getScriptPath script =
