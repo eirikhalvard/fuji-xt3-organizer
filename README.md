@@ -2,12 +2,6 @@
 
 ## Setup
 
-```bash
-chmod +x createFolder
-chmod +x logphotos
-chmod +x transferPhotos
-```
-
 ## Usage
 
 `stack install`

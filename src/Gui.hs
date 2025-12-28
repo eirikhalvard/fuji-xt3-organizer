@@ -3,6 +3,7 @@ module Gui where
 import Control.Monad.State (get, modify)
 import qualified Graphics.Vty as V
 import Graphics.Vty.Config (defaultConfig)
+import qualified Data.Text as TT
 
 import Graphics.Vty.Platform.Unix (mkVty)
 import qualified Brick.AttrMap as A
@@ -20,6 +21,12 @@ import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Graphics.Vty
 import Types
+
+event :: Env -> ApplicationEvent -> IO ()
+event env = BC.writeBChan (eventChan env)
+
+logEvent :: Env -> String -> IO ()
+logEvent env = event env . AppendLogList
 
 runGui :: BC.BChan ApplicationEvent -> AppState -> IO () -> IO ()
 runGui eventChan initialState program = do
@@ -126,7 +133,7 @@ quitableWidget IsRunning = str "Program is currently running"
 
 scrollerWidget :: LogList -> T.Widget String
 scrollerWidget logList =
-    let content = vBox (str <$> logList)
+    let content = vBox (txtWrap . TT.pack <$> logList)
         scroller = viewport "ViewportScroller" T.Vertical content
         withBars = withVScrollBars T.OnRight scroller
         withBorder = border withBars

@@ -32,9 +32,13 @@ dependencies:
   - vty
   - vty-unix
   - mtl
+  - text
 
 library:
   source-dirs: src
+
+data-files:
+  - scripts/*
 
 executables:
   fuji:

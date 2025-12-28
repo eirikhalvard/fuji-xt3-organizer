@@ -1,5 +1,8 @@
 module Scripts where
 
+import Paths_fuji (getDataFileName)
+import Types
+import Gui
 import Data.List.Extra (chunksOf, dropPrefix, splitOn)
 import Data.List (dropWhileEnd)
 import Data.Map (Map)
@@ -8,30 +11,42 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import System.Directory
 import System.Process.Extra (readProcess)
+import Control.Exception (try, SomeException)
+import System.Exit (exitWith, ExitCode(..))
 
 -- functions --
 
-runCreateFolder :: String -> IO [String]
-runCreateFolder folderName = runScript "createFolder" [folderName] parseApplescriptLog
+runCreateFolder :: String -> Env -> IO [String]
+runCreateFolder folderName env = runScript env "createFolder" [folderName] parseApplescriptLog
 
-runLogPhotos :: IO (Map String (Set String))
-runLogPhotos = runScript "logphotos" [] parseLoggedPhotos
 
-runTransferPhotos :: String -> String -> IO [String]
-runTransferPhotos folderName transferFolder = runScript "transferPhotos" [folderName, transferFolder] parseApplescriptLog
+runLogPhotos :: Env -> IO (Map String (Set String))
+runLogPhotos env = runScript env "logphotos" [] parseLoggedPhotos
+
+runTransferPhotos :: String -> String -> Env -> IO [String]
+runTransferPhotos folderName transferFolder env = runScript env "transferPhotos" [folderName, transferFolder] parseApplescriptLog
 
 -- runners --
 
-runScript :: String -> [String] -> (String -> parsed) -> IO parsed
-runScript scriptName inputParameters parser = do
-    folder <- getScriptFolder
-    response <- readProcess (folder ++ scriptName) inputParameters ""
-    return $ parser response
+runScript :: Env -> String -> [String] -> (String -> parsed) -> IO parsed
+runScript env scriptName inputParameters parser = do
+    logEvent env "running script"
+    scriptPath <- getScriptPath scriptName
+    readProcess "/usr/bin/osascript" (scriptPath : inputParameters) ""
+    response <- try (readProcess "/usr/bin/osascript" (scriptPath : inputParameters) "") :: IO (Either SomeException String)
+    case response of
+      Left err -> do
+        logEvent env "some error occured"
+        logEvent env (show err)
+        event env Finished
+        exitWith (ExitFailure 1)
+      Right r -> do
+        logEvent env "successfully executed script"
+        return $ parser r
 
-getScriptFolder :: IO String
-getScriptFolder = do
-    homeDirectory <- getHomeDirectory
-    return $ homeDirectory ++ "/Drive/Skole/Prosjekter/Haskell/fuji/scripts/"
+getScriptPath :: FilePath -> IO FilePath
+getScriptPath script =
+    getDataFileName ("scripts/" ++ script)
 
 -- parsers --
 

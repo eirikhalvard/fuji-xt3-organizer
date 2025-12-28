@@ -71,7 +71,7 @@ directoryExists fp =
 updateFolders :: Env -> IO ()
 updateFolders env = do
     logEvent env "Running logphotos applescript. Fetching album information from Photos app"
-    loggedPhotos <- runLogPhotos
+    loggedPhotos <- runLogPhotos env
     logEvent env "Fetching information from export folder on the file system"
     currentPhotos <- getPhotosFromFolder env
     let diffResult = diffPhotos currentPhotos loggedPhotos
@@ -268,7 +268,7 @@ createPhotosAlbum env = case folderName env of
     Nothing -> error "no folder name. something went wrong"
     Just fn -> do
         logEvent env "creating structure in photos album"
-        loggedEvents <- runCreateFolder fn
+        loggedEvents <- runCreateFolder fn env
         mapM_ (logEvent env) loggedEvents
         logEvent env "done creating structure in photos album"
 
@@ -338,7 +338,7 @@ importToPhotos env AllTransfer = case folderName env of
             Nothing -> error "no jpg path, something is wrong"
             Just jpgPart -> do
                 let transferFolder = ssdLib env ++ jpgPart
-                loggedEvents <- runTransferPhotos fn transferFolder
+                loggedEvents <- runTransferPhotos fn transferFolder env
                 mapM_ (logEvent env) loggedEvents
 
 getExtension :: String -> String
@@ -446,12 +446,6 @@ startProgram env = do
     event env . SDStatus =<< directoryExists (sdLib env)
     event env . SSDStatus =<< directoryExists (ssdBaseLib env)
     event env . ExportStatus =<< directoryExists (exportLib env)
-
-event :: Env -> ApplicationEvent -> IO ()
-event env = BC.writeBChan (eventChan env)
-
-logEvent :: Env -> String -> IO ()
-logEvent env = event env . AppendLogList
 
 runCommand :: Command -> Env -> IO ()
 runCommand command env =

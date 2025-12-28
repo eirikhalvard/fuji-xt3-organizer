@@ -17,6 +17,11 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
+data-files:
+    scripts/createFolder
+    scripts/hpx170
+    scripts/logphotos
+    scripts/transferPhotos
 
 source-repository head
   type: git
@@ -43,6 +48,7 @@ library
     , filepath
     , mtl
     , optparse-applicative
+    , text
     , time
     , unix-compat
     , vty
@@ -67,6 +73,7 @@ executable fuji
     , fuji
     , mtl
     , optparse-applicative
+    , text
     , time
     , unix-compat
     , vty
@@ -92,6 +99,7 @@ test-suite fuji-test
     , fuji
     , mtl
     , optparse-applicative
+    , text
     , time
     , unix-compat
     , vty
